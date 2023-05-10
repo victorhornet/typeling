@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+inkwell = "0.2.0"
 lalrpop-util = { version = "0.20.0", features = ["lexer", "regex", "unicode"] }
 
 
