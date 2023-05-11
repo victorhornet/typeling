@@ -1,0 +1,10 @@
+use std::str::FromStr;
+grammar;
+
+Num: i32 = {
+    r"[0-9]+" => FromStr::from_str(<>).unwrap()
+}
+
+pub Prog: i32 = {
+    Num,
+}
