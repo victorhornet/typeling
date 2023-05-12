@@ -1,27 +1,23 @@
-pub mod ast;
+pub mod calculator;
+pub mod kaleidoscope;
 #[macro_use]
 extern crate lalrpop_util;
-lalrpop_mod!(pub calculator1); // synthesized by LALRPOP
-lalrpop_mod!(pub calculator4);
-lalrpop_mod!(pub typeling);
-lalrpop_mod!(pub calculator6);
 
 fn main() {
     println!("Hello, world!");
 }
 
-#[derive(Debug)]
-pub enum Calculator6Error {
-    InputTooLarge,
-    EvenNumber,
-}
+lalrpop_mod!(pub typeling);
 
 #[cfg(test)]
 mod tests {
 
     use crate::{
-        ast::{Calculator, Expr, OpCode, Visitor},
-        calculator1, calculator4, calculator6, typeling,
+        calculator::{
+            ast::{Calculator, Expr, OpCode, Visitor},
+            calculator1, calculator4, calculator6,
+        },
+        typeling,
     };
     #[test]
     fn calculator1() {
