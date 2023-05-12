@@ -4,16 +4,24 @@ extern crate lalrpop_util;
 lalrpop_mod!(pub calculator1); // synthesized by LALRPOP
 lalrpop_mod!(pub calculator4);
 lalrpop_mod!(pub typeling);
+lalrpop_mod!(pub calculator6);
 
 fn main() {
     println!("Hello, world!");
 }
 
+#[derive(Debug)]
+pub enum Calculator6Error {
+    InputTooLarge,
+    EvenNumber,
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{
-        ast::{Expr, OpCode},
-        calculator1, calculator4, typeling,
+
+    use crate::{
+        ast::{Calculator, Expr, OpCode, Visitor},
+        calculator1, calculator4, calculator6, typeling,
     };
     #[test]
     fn calculator1() {
@@ -43,10 +51,23 @@ mod tests {
             .parse("22 * 44 + 66")
             .expect("parser should not fail");
         assert_eq!(&format!("{:?}", expr), "((22 * 44) + 66)");
+        let calculator = Calculator::new();
+        let res = calculator.visit_expr(&expr);
+        assert_eq!(res, 1034);
     }
 
     #[test]
     fn typeling() {
         typeling::ProgParser::new().parse("22").unwrap();
+    }
+
+    #[test]
+    fn calculator6() {
+        let expr1 = calculator6::ExprParser::new().parse("2147483648");
+        let expr2 = calculator6::ExprParser::new().parse("2");
+        println!("Expr1: {:?}", expr1);
+        println!("Expr2: {:?}", expr2);
+        assert!(expr1.is_err());
+        assert!(expr2.is_err());
     }
 }

@@ -1,7 +1,14 @@
 use std::str::FromStr;
 use crate::ast::{Expr, OpCode};
+use lalrpop_util::ParseError;
+use super::Calculator6Error;
+
 
 grammar;
+
+extern {
+    type Error = Calculator6Error;
+}
 
 Tier<Op, NextTier>: Box<Expr> = {
     Tier<Op, NextTier> Op NextTier => Box::new(Expr::Op(<>)),
@@ -17,7 +24,16 @@ Term = {
 }
 
 Num: i32 = {
-    r"[0-9]+" => FromStr::from_str(<>).unwrap(),
+    r"[0-9]+" =>? i32::from_str(<>).map_err(|_| ParseError::User {
+        error: Calculator6Error::InputTooLarge,
+    }).and_then(|n| {
+        if n % 2 == 0 {
+            return Err(ParseError::User {
+                error: Calculator6Error::EvenNumber,
+            });
+        } 
+        Ok(n)
+    }),
 }
 
 ExprOp: OpCode = {

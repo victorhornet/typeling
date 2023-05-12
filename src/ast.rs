@@ -55,19 +55,39 @@ impl Debug for OpCode {
     }
 }
 
-pub trait Visitor {
-    fn visit(&self);
+pub trait Visitor<T> {
+    fn visit_expr(&self, expr: &Expr) -> T;
 }
 
-impl Visitor for Expr {
-    fn visit(&self) {
-        match *self {
-            Expr::Number(_) => println!("visit number"),
-            Expr::Op(ref l, _, ref r) => {
-                l.visit();
-                r.visit();
+pub struct Calculator;
+
+impl Calculator {
+    pub fn new() -> Self {
+        Calculator::default()
+    }
+}
+
+impl Default for Calculator {
+    fn default() -> Self {
+        Calculator
+    }
+}
+
+impl Visitor<i32> for Calculator {
+    fn visit_expr(&self, expr: &Expr) -> i32 {
+        match *expr {
+            Expr::Number(n) => n,
+            Expr::Op(ref l, op, ref r) => {
+                let l = self.visit_expr(l);
+                let r = self.visit_expr(r);
+                match op {
+                    OpCode::Mul => l * r,
+                    OpCode::Div => l / r,
+                    OpCode::Add => l + r,
+                    OpCode::Sub => l - r,
+                }
             }
-            Expr::Error => println!("visit error"),
+            Expr::Error => panic!("error"),
         }
     }
 }
