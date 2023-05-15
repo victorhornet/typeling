@@ -6,12 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cfgrammar = "0.13.1"
 codespan = "0.11.1"
 inkwell = { version = "0.2.0", features = ["llvm15-0"] }
 lalrpop-util = { version = "0.20.0", features = ["lexer", "regex", "unicode"] }
+lrlex = "0.13.1"
+lrpar = "0.13.1"
 void = "1.0.2"
 
 
 [build-dependencies]
+cfgrammar = "0.13.1"
 lalrpop = "0.20.0"
+lrlex = "0.13.1"
+lrpar = "0.13.1"
 
