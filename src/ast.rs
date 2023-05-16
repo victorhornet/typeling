@@ -1,4 +1,8 @@
+use std::error::Error;
+
 use cfgrammar::Span;
+
+pub type ParseResult<T> = Result<T, Box<dyn Error>>;
 
 #[derive(Debug)]
 pub struct File {
