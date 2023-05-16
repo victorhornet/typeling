@@ -26,7 +26,7 @@ pub struct FunctionDecl {
 pub struct FunctionSig {
     pub name: String,
     pub params: Vec<Param>,
-    pub return_type: Option<Type>,
+    pub return_type: Type,
 }
 
 #[derive(Debug)]

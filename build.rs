@@ -1,5 +1,3 @@
-extern crate lalrpop;
-
 use cfgrammar::yacc::YaccKind;
 use lrlex::CTLexerBuilder;
 

@@ -33,9 +33,9 @@ function_sig -> ParseResult<FunctionSig>
     : "FN" ident "LPAREN" params "RPAREN" function_decl_return { Ok(FunctionSig {name: $2?, params: $4?, return_type: $6?}) }
     ;
 
-function_decl_return -> ParseResult<Option<Type>>
-    : "RETURNS" type { Ok(Some($2?)) }
-    | empty { Ok(None) }
+function_decl_return -> ParseResult<Type>
+    : "RETURNS" type { $2 }
+    | empty { Ok(Type::Unit) }
     ;
 
 params -> ParseResult<Vec<Param>>
