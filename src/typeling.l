@@ -5,9 +5,9 @@ if "IF"
 else "ELSE"
 while "WHILE"
 print "PRINT"
-
+enum "ENUM"
+struct "STRUCT"
 let "LET"
-[_a-zA-Z][_a-zA-Z0-9]* "IDENT"
 [0-9]+ "INT_LIT"
 [0-9]+\.[0-9]+ "FLOAT_LIT"
 \"[^\"]*\" "STRING_LIT"
@@ -44,6 +44,9 @@ String "STRING"
 bool "BOOL"
 
 -> "RETURNS"
+
+[_a-zA-Z][_a-zA-Z0-9]* "IDENT"
+
 
 [\t \n]+ ; 
 //.* ; 

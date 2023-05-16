@@ -1,12 +1,12 @@
 extern crate lalrpop;
 
-use cfgrammar::yacc::{YaccKind, YaccOriginalActionKind};
+use cfgrammar::yacc::YaccKind;
 use lrlex::CTLexerBuilder;
 
 fn main() {
     CTLexerBuilder::new()
         .lrpar_config(|ctp| {
-            ctp.yacckind(YaccKind::Original(YaccOriginalActionKind::NoAction))
+            ctp.yacckind(YaccKind::Grmtools)
                 .grammar_in_src_dir("typeling.y")
                 .unwrap()
         })
