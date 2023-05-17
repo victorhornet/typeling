@@ -1,12 +1,12 @@
 
-type Test;
-type Test (i32, i32);
-type Test {
+type Test1;
+type Test2 (i32, i32);
+type Test3 {
     x: i32,
     y: i32,
     z: Test,
 }
-type Test 
+type Test4
     = V1 
     | V2 
     | V3 (i32, i32)
@@ -14,12 +14,16 @@ type Test
     ;
 
 fn function() {
-    let x: something;
-    let y: something_else;
+    let x: Test1;
+    let y: Test2;
     let z: i32 = 0;
 
     z = 5 + 5;
 } 
+
+fn function() -> Test3 {}
+
+fn function() -> f32 {}
 
 fn main() {
     function();
