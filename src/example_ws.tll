@@ -1,0 +1,10 @@
+struct something;
+
+enum something_else;
+
+fn function() -> ():
+    let x: something;
+    let y: something_else;
+    let z: i32 = 0;
+
+    z = 5 + 5;

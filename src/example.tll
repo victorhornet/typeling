@@ -1,7 +1,17 @@
 
-struct something;
-
-enum something_else;
+type Test;
+type Test (i32, i32);
+type Test {
+    x: i32,
+    y: i32,
+    z: Test,
+}
+type Test 
+    = V1 
+    | V2 
+    | V3 (i32, i32)
+    | V4 { x: i32, y: i32 }
+    ;
 
 fn function() {
     let x: something;
@@ -10,3 +20,7 @@ fn function() {
 
     z = 5 + 5;
 } 
+
+fn main() {
+    function();
+}

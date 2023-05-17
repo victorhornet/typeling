@@ -11,9 +11,8 @@ pub struct File {
 
 #[derive(Debug)]
 pub enum Item {
-    Function(FunctionDecl),
-    Struct(StructDecl),
-    Enum(EnumDecl),
+    FunctionDecl(FunctionDecl),
+    TypeDecl(TypeDecl),
 }
 
 #[derive(Debug)]
@@ -43,12 +42,41 @@ pub enum Type {
     Bool,
     String,
     Ident(String),
-    Struct(String),
-    Enum(String),
     Array(Box<Type>),
     Function(Box<FunctionSig>),
 }
 
+#[derive(Debug)]
+pub struct TypeDecl {
+    pub name: String,
+    pub def: TypeDef,
+}
+
+#[derive(Debug)]
+pub enum TypeDef {
+    Unit,
+    Tuple(Vec<Type>),
+    Struct(Vec<StructField>),
+    Enum(Vec<EnumVariant>),
+}
+
+#[derive(Debug)]
+pub struct StructField {
+    pub key: String,
+    pub ty: Type,
+}
+
+#[derive(Debug)]
+pub struct EnumVariant {
+    pub tag: String,
+    pub ty: TypeDef,
+}
+
+#[derive(Debug)]
+pub struct Alias {
+    pub name: String,
+    pub original: Type,
+}
 #[derive(Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
@@ -148,6 +176,12 @@ pub enum UnOp {
     Not,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum IndentationLevel {
+    Tabs(u32),
+    Spaces(u32),
+    None,
+}
 #[derive(Debug)]
 pub struct StructDecl;
 

@@ -11,19 +11,60 @@ item_list -> ParseResult<Vec<Item>>
     ;
 
 item -> ParseResult<Item>
-    : function_decl { Ok(Item::Function($1?)) }
-    | struct_decl { Ok(Item::Struct($1?)) }
-    | enum_decl { Ok(Item::Enum($1?)) }
+    : function_decl { Ok(Item::FunctionDecl($1?)) }
+    | type_decl { Ok(Item::TypeDecl($1?)) }
     ;
 
-struct_decl -> ParseResult<StructDecl>
-    : "STRUCT" ident "SEMICOLON" { Ok(StructDecl) }
+type_decl -> ParseResult<TypeDecl>
+    : "TYPE" ident type_def { Ok(TypeDecl {name: $2?, def: $3?}) }
     ;
 
-enum_decl -> ParseResult<EnumDecl>
-    : "ENUM" ident "SEMICOLON" { Ok(EnumDecl) }
+type_def -> ParseResult<TypeDef>
+    : empty "SEMICOLON" { Ok(TypeDef::Unit) }
+    | tuple_def "SEMICOLON" { $1 }
+    | struct_def { $1 }
+    | "ASSIGN" enum_variants "SEMICOLON" { Ok(TypeDef::Enum($2?)) }
     ;
 
+tuple_def -> ParseResult<TypeDef>
+    : "LPAREN" "RPAREN" { Ok(TypeDef::Tuple(vec![])) }
+    | "LPAREN" tuple_params "RPAREN" { Ok(TypeDef::Tuple($2?)) }
+    ;
+
+struct_def -> ParseResult<TypeDef>
+    : "LBRACE" "RBRACE" { Ok(TypeDef::Struct(vec![])) }
+    | "LBRACE" struct_fields "RBRACE" { Ok(TypeDef::Struct($2?)) }
+    | "LBRACE" struct_fields "COMMA" "RBRACE" { Ok(TypeDef::Struct($2?)) }
+    ;
+
+tuple_params -> ParseResult<Vec<Type>>
+    : type { Ok(vec![$1?]) }
+    | tuple_params "COMMA" type { flatten($1, $3) }
+    ;
+
+struct_fields -> ParseResult<Vec<StructField>>
+    : struct_field { Ok(vec![$1?]) }
+    | struct_fields "COMMA" struct_field { flatten($1, $3) }
+    ;
+
+struct_field -> ParseResult<StructField>
+    : ident "COLON" type { Ok(StructField { key: $1?, ty: $3? }) }
+    ;
+
+enum_variants -> ParseResult<Vec<EnumVariant>>
+    : enum_variant { Ok(vec![$1?]) }
+    | enum_variants "PIPE" enum_variant { flatten($1, $3) }
+    ;
+
+enum_variant -> ParseResult<EnumVariant>
+    : ident variant_type_def { Ok(EnumVariant {tag: $1?, ty: $2?}) }
+    ;
+
+variant_type_def -> ParseResult<TypeDef>
+    : empty { Ok(TypeDef::Unit)}
+    | struct_def { $1 }
+    | tuple_def { $1 }
+    ;
 
 function_decl -> ParseResult<FunctionDecl>
     : function_sig block { Ok(FunctionDecl {function_sig: $1?, body: $2?}) }
@@ -76,7 +117,7 @@ stmt -> ParseResult<Statement>
     | print_stmt { Ok(Statement::Print($1?))}
     | var_decl { Ok(Statement::VarDecl($1?))}
     | assign_stmt { Ok(Statement::Assign($1?))}
-    | function_call { Ok(Statement::FunctionCall($1?))}
+    | function_call "SEMICOLON" { Ok(Statement::FunctionCall($1?))}
     ;
 
 if_stmt -> ParseResult<If>
@@ -120,8 +161,13 @@ primitive_type -> ParseResult<Type>
     ;
 
 function_call -> ParseResult<FunctionCall>
-    : ident "RPAREN" arg_list "LPAREN" { Ok(FunctionCall {name: $1?, args: $3?}) }
+    : ident "LPAREN" args "RPAREN" { Ok(FunctionCall {name: $1?, args: $3?}) }
     ;
+
+args -> ParseResult<Vec<Expr>>
+    : empty { Ok(vec![]) }
+    | arg_list { $1 }
+    ;    
 
 arg_list -> ParseResult<Vec<Expr>>
     : expr { Ok(vec![$1?])}
