@@ -7,6 +7,7 @@ pub type ParseResult<T> = Result<T, Box<dyn Error>>;
 #[derive(Debug)]
 pub struct File {
     pub items: Vec<Item>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum Item {
 pub struct FunctionDecl {
     pub function_sig: FunctionSig,
     pub body: Block,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -26,12 +28,14 @@ pub struct FunctionSig {
     pub name: String,
     pub params: Vec<Param>,
     pub return_type: Type,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Param {
     pub name: String,
     pub param_type: Type,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -50,6 +54,7 @@ pub enum Type {
 pub struct TypeDecl {
     pub name: String,
     pub def: TypeDef,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -64,22 +69,26 @@ pub enum TypeDef {
 pub struct StructField {
     pub key: String,
     pub ty: Type,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct EnumVariant {
     pub tag: String,
     pub ty: TypeDef,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Alias {
     pub name: String,
     pub original: Type,
+    pub span: Span,
 }
 #[derive(Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -98,11 +107,13 @@ pub enum Statement {
 #[derive(Debug)]
 pub struct Print {
     pub value: Expr,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Return {
     pub value: Option<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -110,12 +121,14 @@ pub struct If {
     pub condition: Expr,
     pub then_block: Block,
     pub else_block: Option<Block>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct While {
     pub condition: Expr,
     pub body: Block,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -123,18 +136,21 @@ pub struct VarDecl {
     pub name: String,
     pub var_type: Type,
     pub value: Option<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Assign {
     pub name: String,
     pub value: Expr,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct FunctionCall {
     pub name: String,
     pub args: Vec<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -182,8 +198,3 @@ pub enum IndentationLevel {
     Spaces(u32),
     None,
 }
-#[derive(Debug)]
-pub struct StructDecl;
-
-#[derive(Debug)]
-pub struct EnumDecl;
