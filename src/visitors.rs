@@ -78,11 +78,11 @@ impl Visitor<()> for SpanPrinter {
             Type::String => println!("Type: string"),
             Type::Array(element_type) => {
                 println!("Type: array");
-                self.visit_type(&element_type);
+                self.visit_type(element_type);
             }
             Type::Function(function_sig) => {
                 println!("Type: function");
-                self.visit_function_sig(&function_sig);
+                self.visit_function_sig(function_sig);
             }
             Type::Ident(ident) => {
                 let ident = slice(&self.input, ident);
@@ -101,7 +101,7 @@ impl Visitor<()> for SpanPrinter {
             TypeDef::Tuple(tuple_fields) => {
                 println!("Type definition: tuple");
                 for tuple_field in tuple_fields {
-                    self.visit_type(&tuple_field);
+                    self.visit_type(tuple_field);
                 }
             }
             TypeDef::Struct(struct_fields) => {
