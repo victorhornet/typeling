@@ -2,9 +2,11 @@ pub mod ast;
 pub mod visitors;
 
 use clap::Parser;
+use inkwell::context::Context;
 use lrlex::lrlex_mod;
 use lrpar::lrpar_mod;
 use std::{env, fs, path::Path};
+use visitors::{CodeGen, SpanPrinter};
 
 lrlex_mod!("typeling.l");
 lrpar_mod!("typeling.y");
@@ -31,9 +33,15 @@ fn main() {
     match res {
         Some(r) => {
             if let Ok(file) = r {
-                visitors::SpanPrinter::new(&input).print(&file);
+                SpanPrinter::new(&input).print(&file);
             }
         }
         None => eprintln!("Parse failed"),
+    }
+
+    {
+        let context = Context::create();
+        let codegen = CodeGen::new(&input, &context);
+        println!("{:#?}", codegen);
     }
 }
