@@ -174,8 +174,8 @@ arg_list -> ParseResult<Vec<Expr>>
     | arg_list "COMMA" expr { flatten($1, $3) }
     ;
 
-ident -> ParseResult<String>
-    : "IDENT" { Ok(String::from("temp")) }
+ident -> ParseResult<Span>
+    : "IDENT" { Ok($span) }
     ;
 
 expr -> ParseResult<Expr>
@@ -210,6 +210,7 @@ empty -> ParseResult<Option<()>>
 %%
 
 use crate::ast::*;
+use cfgrammar::Span;
 
 fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<T>>
 {

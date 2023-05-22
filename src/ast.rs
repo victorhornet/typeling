@@ -25,7 +25,7 @@ pub struct FunctionDecl {
 
 #[derive(Debug)]
 pub struct FunctionSig {
-    pub name: String,
+    pub name: Span,
     pub params: Vec<Param>,
     pub return_type: Type,
     pub span: Span,
@@ -33,7 +33,7 @@ pub struct FunctionSig {
 
 #[derive(Debug)]
 pub struct Param {
-    pub name: String,
+    pub name: Span,
     pub param_type: Type,
     pub span: Span,
 }
@@ -45,14 +45,14 @@ pub enum Type {
     Float,
     Bool,
     String,
-    Ident(String),
+    Ident(Span),
     Array(Box<Type>),
     Function(Box<FunctionSig>),
 }
 
 #[derive(Debug)]
 pub struct TypeDecl {
-    pub name: String,
+    pub name: Span,
     pub def: TypeDef,
     pub span: Span,
 }
@@ -67,21 +67,21 @@ pub enum TypeDef {
 
 #[derive(Debug)]
 pub struct StructField {
-    pub key: String,
+    pub key: Span,
     pub ty: Type,
     pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct EnumVariant {
-    pub tag: String,
+    pub tag: Span,
     pub ty: TypeDef,
     pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Alias {
-    pub name: String,
+    pub name: Span,
     pub original: Type,
     pub span: Span,
 }
@@ -133,7 +133,7 @@ pub struct While {
 
 #[derive(Debug)]
 pub struct VarDecl {
-    pub name: String,
+    pub name: Span,
     pub var_type: Type,
     pub value: Option<Expr>,
     pub span: Span,
@@ -141,16 +141,26 @@ pub struct VarDecl {
 
 #[derive(Debug)]
 pub struct Assign {
-    pub name: String,
+    pub name: Span,
     pub value: Expr,
     pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct FunctionCall {
-    pub name: String,
+    pub name: Span,
     pub args: Vec<Expr>,
     pub span: Span,
+}
+
+impl<'a> ToId<'a> for FunctionCall {
+    fn to_id(&self, input: &'a str) -> &'a str {
+        slice(input, &self.name)
+    }
+}
+
+pub fn slice<'a>(input: &'a str, span: &Span) -> &'a str {
+    &input[span.start()..span.end()]
 }
 
 #[derive(Debug)]
@@ -197,4 +207,8 @@ pub enum IndentationLevel {
     Tabs(u32),
     Spaces(u32),
     None,
+}
+
+pub trait ToId<'a> {
+    fn to_id(&self, input: &'a str) -> &'a str;
 }
