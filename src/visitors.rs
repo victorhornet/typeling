@@ -3,9 +3,23 @@ mod codegen;
 pub use codegen::CodeGen;
 pub trait Visitor<T> {
     fn visit_file(&mut self, file: &File) -> T;
+    fn walk_file(&mut self, file: &File) -> Vec<T> {
+        let mut res = Vec::new();
+        for item in &file.items {
+            res.push(self.visit_item(item));
+        }
+        res
+    }
     fn visit_item(&mut self, item: &Item) -> T;
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> T;
     fn visit_function_sig(&mut self, function_sig: &FunctionSig) -> T;
+    fn walk_function_sig(&mut self, function_sig: &FunctionSig) -> (Vec<T>, T) {
+        let mut res = Vec::new();
+        for param in &function_sig.params {
+            res.push(self.visit_param(param));
+        }
+        (res, self.visit_type(&function_sig.return_type))
+    }
     fn visit_param(&mut self, param: &Param) -> T;
     fn visit_type(&mut self, type_: &Type) -> T;
     fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> T;

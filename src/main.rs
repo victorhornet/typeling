@@ -48,7 +48,7 @@ fn main() {
             if let Ok(file) = r {
                 SpanPrinter::new(&input).print(&file);
                 let context = Context::create();
-                let mut codegen = CodeGen::new(&input, &context);
+                let mut codegen = CodeGen::new(&lexer, &context);
                 codegen.compile(&file);
             }
         }
