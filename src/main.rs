@@ -38,20 +38,20 @@ fn main() {
             }
         }
     }
-    // let (res, errs) = typeling_y::parse(&lexer);
-    // for e in errs {
-    //     println!("{}", e.pp(&lexer, &typeling_y::token_epp));
-    // }
+    let (res, errs) = typeling_y::parse(&lexer);
+    for e in errs {
+        println!("{}", e.pp(&lexer, &typeling_y::token_epp));
+    }
 
-    // match res {
-    //     Some(r) => {
-    //         if let Ok(file) = r {
-    //             SpanPrinter::new(&input).print(&file);
-    //             let context = Context::create();
-    //             let mut codegen = CodeGen::new(&input, &context);
-    //             codegen.compile(&file);
-    //         }
-    //     }
-    //     None => eprintln!("Parse failed"),
-    // }
+    match res {
+        Some(r) => {
+            if let Ok(file) = r {
+                SpanPrinter::new(&input).print(&file);
+                let context = Context::create();
+                let mut codegen = CodeGen::new(&input, &context);
+                codegen.compile(&file);
+            }
+        }
+        None => eprintln!("Parse failed"),
+    }
 }
