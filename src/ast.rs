@@ -153,16 +153,6 @@ pub struct FunctionCall {
     pub span: Span,
 }
 
-impl<'a> ToId<'a> for FunctionCall {
-    fn to_id(&self, input: &'a str) -> &'a str {
-        slice(input, &self.name)
-    }
-}
-
-pub fn slice<'a>(input: &'a str, span: &Span) -> &'a str {
-    &input[span.start()..span.end()]
-}
-
 #[derive(Debug)]
 pub enum Expr {
     Int(i64),
@@ -209,6 +199,6 @@ pub enum IndentationLevel {
     None,
 }
 
-pub trait ToId<'a> {
-    fn to_id(&self, input: &'a str) -> &'a str;
+pub fn slice<'a>(input: &'a str, span: &Span) -> &'a str {
+    &input[span.start()..span.end()]
 }

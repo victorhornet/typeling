@@ -1,3 +1,10 @@
+// single line comment
+
+/* 
+    multi
+    line
+    comment
+*/
 
 type Test1;
 type Test2 (i32, i32);
