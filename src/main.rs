@@ -1,13 +1,12 @@
 pub mod ast;
 pub mod visitors;
 
-use cfgrammar::Span;
 use clap::Parser;
 use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path};
-use visitors::{CodeGen, SpanPrinter};
+use visitors::CodeGen;
 
 lrlex_mod!("typeling.l");
 lrpar_mod!("typeling.y");
@@ -46,7 +45,6 @@ fn main() {
     match res {
         Some(r) => {
             if let Ok(file) = r {
-                SpanPrinter::new(&input).print(&file);
                 let context = Context::create();
                 let mut codegen = CodeGen::new(&lexer, &context);
                 codegen.compile(&file);

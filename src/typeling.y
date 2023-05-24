@@ -2,7 +2,7 @@
 %%
 file -> ParseResult<File>
     : item_list { Ok(File {items: $1?, span: $span}) }
-    | empty { Ok(File {items: vec![], span: $span}) }
+    | %empty { Ok(File {items: vec![], span: $span}) }
     ;
 
 item_list -> ParseResult<Vec<Item>>
@@ -20,7 +20,7 @@ type_decl -> ParseResult<TypeDecl>
     ;
 
 type_def -> ParseResult<TypeDef>
-    : empty "SEMICOLON" { Ok(TypeDef::Unit) }
+    : "SEMICOLON" { Ok(TypeDef::Unit) }
     | tuple_def "SEMICOLON" { $1 }
     | struct_def { $1 }
     | "ASSIGN" enum_variants "SEMICOLON" { Ok(TypeDef::Enum($2?)) }
@@ -61,7 +61,7 @@ enum_variant -> ParseResult<EnumVariant>
     ;
 
 variant_type_def -> ParseResult<TypeDef>
-    : empty { Ok(TypeDef::Unit)}
+    : %empty { Ok(TypeDef::Unit)}
     | struct_def { $1 }
     | tuple_def { $1 }
     ;
@@ -76,11 +76,11 @@ function_sig -> ParseResult<FunctionSig>
 
 function_decl_return -> ParseResult<Type>
     : "RETURNS" type { $2 }
-    | empty { Ok(Type::Unit) }
+    | %empty { Ok(Type::Unit) }
     ;
 
 params -> ParseResult<Vec<Param>>
-    : empty { Ok(vec![]) }
+    : %empty { Ok(vec![]) }
     | param_list { $1 }
     ;
 
@@ -99,7 +99,7 @@ block -> ParseResult<Block>
 
 block_contents -> ParseResult<Vec<Statement>>
     : stmt_list { $1 }
-    | empty { Ok(vec![]) }
+    | %empty { Ok(vec![]) }
     ;
 
 
@@ -121,12 +121,12 @@ stmt -> ParseResult<Statement>
     ;
 
 if_stmt -> ParseResult<If>
-    : "IF" "RPAREN" expr "LPAREN" block { Ok(If {condition: $3?, then_block: $5?, else_block: None, span: $span}) }
-    | "IF" "RPAREN" expr "LPAREN" block "ELSE" block { Ok(If {condition: $3?, then_block: $5?, else_block: Some($7?), span: $span}) }
+    : "IF" expr block { Ok(If {condition: $2?, then_block: $3?, else_block: None, span: $span}) }
+    | "IF" expr "LPAREN" block "ELSE" block { Ok(If {condition: $2?, then_block: $4?, else_block: Some($6?), span: $span}) }
     ;
 
 while_stmt -> ParseResult<While>
-    : "WHILE" "RPAREN" expr "LPAREN" block { Ok(While {condition: $3?, body: $5?, span: $span}) }
+    : "WHILE" expr block { Ok(While {condition: $2?, body: $3?, span: $span}) }
     ;
 
 return_stmt -> ParseResult<Return>
@@ -135,7 +135,7 @@ return_stmt -> ParseResult<Return>
     ;
 
 print_stmt -> ParseResult<Print>
-    : "PRINT" "RPAREN" expr "LPAREN" "SEMICOLON" { Ok(Print {value: $3?, span: $span}) }
+    : "PRINT" "LPAREN" expr "RPAREN" "SEMICOLON" { Ok(Print {value: $3?, span: $span}) }
     ;
 
 var_decl -> ParseResult<VarDecl>
@@ -153,7 +153,7 @@ type -> ParseResult<Type>
     ;
 
 primitive_type -> ParseResult<Type>
-    : "INT" { Ok(Type::Int) }
+    : "INT" { Ok(Type::Int) } 
     | "FLOAT" { Ok(Type::Float) }
     | "STRING" { Ok(Type::String) }
     | "BOOL" { Ok(Type::Bool) }
@@ -165,7 +165,7 @@ function_call -> ParseResult<FunctionCall>
     ;
 
 args -> ParseResult<Vec<Expr>>
-    : empty { Ok(vec![]) }
+    : %empty { Ok(vec![]) }
     | arg_list { $1 }
     ;    
 
@@ -190,7 +190,7 @@ factor -> ParseResult<Expr>
 
 term -> ParseResult<Expr>
     : "LPAREN" expr "RPAREN" { $2 }
-    | "INT_LIT" { Ok(Expr::Int(0)) }
+    | "INT_LIT" { Ok( Expr::Int($lexer.span_str($1?.span()).parse().unwrap())) }
     ;
 
 expr_op -> ParseResult<BinOp>
@@ -203,9 +203,7 @@ factor_op -> ParseResult<BinOp>
     | "DIVIDE" { Ok(BinOp::Div) }
     ;
 
-empty -> ParseResult<Option<()>>
-    : { Ok(None) }
-    ;
+
 
 %%
 
@@ -218,5 +216,3 @@ fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<
     flt.push(rhs?);
     Ok(flt)
 }
-
-

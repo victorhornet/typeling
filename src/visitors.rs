@@ -1,8 +1,11 @@
 use crate::ast::*;
 mod codegen;
 pub use codegen::CodeGen;
+#[allow(unused_variables)]
 pub trait Visitor<T> {
-    fn visit_file(&mut self, file: &File) -> T;
+    fn visit_file(&mut self, file: &File) -> T {
+        unimplemented!()
+    }
     fn walk_file(&mut self, file: &File) -> Vec<T> {
         let mut res = Vec::new();
         for item in &file.items {
@@ -10,9 +13,15 @@ pub trait Visitor<T> {
         }
         res
     }
-    fn visit_item(&mut self, item: &Item) -> T;
-    fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> T;
-    fn visit_function_sig(&mut self, function_sig: &FunctionSig) -> T;
+    fn visit_item(&mut self, item: &Item) -> T {
+        unimplemented!()
+    }
+    fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> T {
+        unimplemented!()
+    }
+    fn visit_function_sig(&mut self, function_sig: &FunctionSig) -> T {
+        unimplemented!()
+    }
     fn walk_function_sig(&mut self, function_sig: &FunctionSig) -> (Vec<T>, T) {
         let mut res = Vec::new();
         for param in &function_sig.params {
@@ -20,25 +29,84 @@ pub trait Visitor<T> {
         }
         (res, self.visit_type(&function_sig.return_type))
     }
-    fn visit_param(&mut self, param: &Param) -> T;
-    fn visit_type(&mut self, type_: &Type) -> T;
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> T;
-    fn visit_type_def(&mut self, type_def: &TypeDef) -> T;
-    fn visit_struct_field(&mut self, struct_field: &StructField) -> T;
-    fn visit_enum_variant(&mut self, enum_variant: &EnumVariant) -> T;
-    fn visit_alias(&mut self, alias: &Alias) -> T;
-    fn visit_block(&mut self, block: &Block) -> T;
-    fn visit_statement(&mut self, statement: &Statement) -> T;
-    fn visit_print(&mut self, print: &Print) -> T;
-    fn visit_return(&mut self, return_: &Return) -> T;
-    fn visit_if(&mut self, if_: &If) -> T;
-    fn visit_while(&mut self, while_: &While) -> T;
-    fn visit_var_decl(&mut self, var_decl: &VarDecl) -> T;
-    fn visit_assign(&mut self, assign: &Assign) -> T;
-    fn visit_function_call(&mut self, function_call: &FunctionCall) -> T;
-    fn visit_expr(&mut self, expr: &Expr) -> T;
-    fn visit_bin_op(&mut self, binary_op: &BinOp) -> T;
-    fn visit_un_op(&mut self, unary_op: &UnOp) -> T;
+    fn visit_param(&mut self, param: &Param) -> T {
+        unimplemented!()
+    }
+    fn visit_type(&mut self, type_: &Type) -> T {
+        unimplemented!()
+    }
+    fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> T {
+        unimplemented!()
+    }
+    fn visit_type_def(&mut self, type_def: &TypeDef) -> T {
+        unimplemented!()
+    }
+    fn visit_struct_field(&mut self, struct_field: &StructField) -> T {
+        unimplemented!()
+    }
+    fn visit_enum_variant(&mut self, enum_variant: &EnumVariant) -> T {
+        unimplemented!()
+    }
+    fn visit_alias(&mut self, alias: &Alias) -> T {
+        unimplemented!()
+    }
+    fn visit_block(&mut self, block: &Block) -> T {
+        self.walk_block(block).pop().unwrap()
+    }
+    fn walk_block(&mut self, block: &Block) -> Vec<T> {
+        let mut res = Vec::new();
+        for statement in &block.statements {
+            res.push(self.visit_statement(statement));
+        }
+        res
+    }
+    fn visit_statement(&mut self, statement: &Statement) -> T {
+        match statement {
+            Statement::Return(return_statement) => self.visit_return(return_statement),
+            Statement::Expr(expression_statement) => self.visit_expr(expression_statement),
+            Statement::Block(block) => self.visit_block(block),
+            Statement::If(if_statement) => self.visit_if(if_statement),
+            Statement::While(while_statement) => self.visit_while(while_statement),
+            Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
+            Statement::Assign(assign) => self.visit_assign(assign),
+            Statement::FunctionCall(function_call) => self.visit_function_call(function_call),
+            Statement::Print(print) => self.visit_print(print),
+        }
+    }
+    fn visit_print(&mut self, print: &Print) -> T {
+        self.visit_expr(&print.value)
+    }
+    fn visit_return(&mut self, return_: &Return) -> T {
+        if let Some(expr) = &return_.value {
+            self.visit_expr(expr)
+        } else {
+            unimplemented!()
+        }
+    }
+    fn visit_if(&mut self, if_: &If) -> T {
+        unimplemented!()
+    }
+    fn visit_while(&mut self, while_: &While) -> T {
+        unimplemented!()
+    }
+    fn visit_var_decl(&mut self, var_decl: &VarDecl) -> T {
+        unimplemented!()
+    }
+    fn visit_assign(&mut self, assign: &Assign) -> T {
+        unimplemented!()
+    }
+    fn visit_function_call(&mut self, function_call: &FunctionCall) -> T {
+        unimplemented!()
+    }
+    fn visit_expr(&mut self, expr: &Expr) -> T {
+        unimplemented!()
+    }
+    fn visit_bin_op(&mut self, binary_op: &BinOp) -> T {
+        unimplemented!()
+    }
+    fn visit_un_op(&mut self, unary_op: &UnOp) -> T {
+        unimplemented!()
+    }
 }
 
 pub struct SpanPrinter {

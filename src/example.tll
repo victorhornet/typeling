@@ -22,16 +22,21 @@ type Test4
 
 fn function() {
     let x: Test1;
-    let y: Test2;
-    let z: i32 = 0;
+    let y: Test2 = 1 * 16 - 2;
+    let z: i32 = 6 / 2;
 
+    5 + 3;
     z = 5 + 5;
 } 
 
-fn function() -> Test3 {}
+fn function() -> Test3 {
+    return 3 + 3;
+}
 
-fn function() -> f32 {}
+fn function() -> f32 {
+    return 10 - 3;
+}
 
 fn main() {
-    function();
+    print(0);
 }
