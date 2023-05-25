@@ -14,6 +14,7 @@ pub struct File {
 pub enum Item {
     FunctionDecl(FunctionDecl),
     TypeDecl(TypeDecl),
+    AliasDecl(AliasDecl),
 }
 
 #[derive(Debug)]
@@ -86,7 +87,7 @@ pub struct EnumVariant {
 }
 
 #[derive(Debug)]
-pub struct Alias {
+pub struct AliasDecl {
     pub name: Span,
     pub original: Type,
     pub span: Span,

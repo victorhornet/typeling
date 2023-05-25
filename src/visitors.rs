@@ -49,7 +49,7 @@ pub trait Visitor<T> {
     fn visit_enum_variant(&mut self, enum_variant: &EnumVariant) -> T {
         unimplemented!()
     }
-    fn visit_alias(&mut self, alias: &Alias) -> T {
+    fn visit_alias_decl(&mut self, alias: &AliasDecl) -> T {
         unimplemented!()
     }
     fn visit_block(&mut self, block: &Block) -> T {
@@ -136,6 +136,7 @@ impl Visitor<()> for SpanPrinter {
         match item {
             Item::FunctionDecl(function_decl) => self.visit_function_decl(function_decl),
             Item::TypeDecl(type_decl) => self.visit_type_decl(type_decl),
+            Item::AliasDecl(alias_decl) => self.visit_alias_decl(alias_decl),
         }
     }
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) {
@@ -214,7 +215,7 @@ impl Visitor<()> for SpanPrinter {
         println!("Enum variant: {}", ident);
         self.visit_type_def(&enum_variant.ty);
     }
-    fn visit_alias(&mut self, alias: &Alias) {
+    fn visit_alias_decl(&mut self, alias: &AliasDecl) {
         let ident = slice(&self.input, &alias.name);
         println!("Alias: {}", ident);
         self.visit_type(&alias.original);

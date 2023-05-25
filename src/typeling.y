@@ -13,6 +13,11 @@ item_list -> ParseResult<Vec<Item>>
 item -> ParseResult<Item>
     : function_decl { Ok(Item::FunctionDecl($1?)) }
     | type_decl { Ok(Item::TypeDecl($1?)) }
+    | alias_decl { Ok(Item::AliasDecl($1?)) }
+    ;
+
+alias_decl -> ParseResult<AliasDecl>
+    : "ALIAS" ident "ASSIGN" type "SEMICOLON" { Ok(AliasDecl {name: $2?, original: $4?, span: $span}) }
     ;
 
 type_decl -> ParseResult<TypeDecl>
@@ -208,19 +213,6 @@ factor_op -> ParseResult<BinOp>
     ;
 
 
-whitespace_1_more -> ParseResult<()>
-    : whitespace_1_more whitespace { Ok(()) }
-    | whitespace { Ok(()) }
-    ;
-
-whitespace_0_more -> ParseResult<()>
-    : whitespace_0_more whitespace { Ok(()) }
-    | %empty { Ok(()) }
-    ;
-
-whitespace -> ParseResult<()>
-    : "WHITESPACE" { Ok(()) }
-    ;
 
 
 %%

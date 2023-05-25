@@ -85,6 +85,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         match item {
             Item::FunctionDecl(function_decl) => self.visit_function_decl(function_decl)?,
             Item::TypeDecl(type_decl) => self.visit_type_decl(type_decl)?,
+            Item::AliasDecl(alias_decl) => self.visit_alias_decl(alias_decl)?,
         };
         Ok(None)
     }
