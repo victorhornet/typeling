@@ -1,6 +1,8 @@
 use crate::ast::*;
 mod codegen;
+mod typecheck;
 pub use codegen::CodeGen;
+pub use typecheck::TypeCheck;
 #[allow(unused_variables)]
 pub trait Visitor<T> {
     fn visit_file(&mut self, file: &File) -> T {
@@ -24,10 +26,10 @@ pub trait Visitor<T> {
     }
     fn walk_function_sig(&mut self, function_sig: &FunctionSig) -> (Vec<T>, T) {
         let mut res = Vec::new();
-        for param in &function_sig.params {
+        for param in &function_sig.proto.params {
             res.push(self.visit_param(param));
         }
-        (res, self.visit_type(&function_sig.return_type))
+        (res, self.visit_type(&function_sig.proto.return_type))
     }
     fn visit_param(&mut self, param: &Param) -> T {
         unimplemented!()
@@ -143,10 +145,10 @@ impl Visitor<()> for SpanPrinter {
     fn visit_function_sig(&mut self, function_sig: &FunctionSig) {
         let ident = slice(&self.input, &function_sig.name);
         println!("Function signature: {}", ident);
-        for param in &function_sig.params {
+        for param in &function_sig.proto.params {
             self.visit_param(param);
         }
-        self.visit_type(&function_sig.return_type);
+        self.visit_type(&function_sig.proto.return_type);
     }
     fn visit_param(&mut self, param: &Param) {
         let ident = slice(&self.input, &param.name);

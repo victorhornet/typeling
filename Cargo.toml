@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 cfgrammar = "0.13.1"
 clap = { version = "4.2.7", features = ["derive"] }
-inkwell = { version = "0.2.0", features = ["llvm14-0"] }
+inkwell = { version = "0.2.0", features = ["llvm15-0"] }
 lrlex = "0.13.1"
 lrpar = "0.13.1"
 

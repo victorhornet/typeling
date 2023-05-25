@@ -71,7 +71,11 @@ function_decl -> ParseResult<FunctionDecl>
     ;
 
 function_sig -> ParseResult<FunctionSig>
-    : "FN" ident "LPAREN" params "RPAREN" function_decl_return { Ok(FunctionSig {name: $2?, params: $4?, return_type: $6?, span: $span}) }
+    : "FN" ident function_proto { Ok(FunctionSig {name: $2?, proto: $3?, span: $span}) }
+    ;
+
+function_proto -> ParseResult<FunctionProto>
+    : "LPAREN" params "RPAREN" function_decl_return { Ok(FunctionProto{params: $2?, return_type: $4?, span: $span})}
     ;
 
 function_decl_return -> ParseResult<Type>
@@ -203,6 +207,20 @@ factor_op -> ParseResult<BinOp>
     | "DIVIDE" { Ok(BinOp::Div) }
     ;
 
+
+whitespace_1_more -> ParseResult<()>
+    : whitespace_1_more whitespace { Ok(()) }
+    | whitespace { Ok(()) }
+    ;
+
+whitespace_0_more -> ParseResult<()>
+    : whitespace_0_more whitespace { Ok(()) }
+    | %empty { Ok(()) }
+    ;
+
+whitespace -> ParseResult<()>
+    : "WHITESPACE" { Ok(()) }
+    ;
 
 
 %%

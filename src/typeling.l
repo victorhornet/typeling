@@ -42,8 +42,8 @@ false "FALSE"
 \, "COMMA"
 
 
-i32 "INT"
-f32 "FLOAT"
+i64 "INT"
+f64 "FLOAT"
 String "STRING"
 bool "BOOL"
 

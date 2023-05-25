@@ -95,7 +95,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let basic_block = self.context.append_basic_block(fn_value, "entry");
         self.builder.position_at_end(basic_block);
         self.walk_block(&function_decl.body);
-        if let Type::Unit = function_decl.function_sig.return_type {
+        if let Type::Unit = function_decl.function_sig.proto.return_type {
             self.builder.build_return(None);
         } else {
             //todo change this to check if the last statement is a return

@@ -1,10 +1,38 @@
-struct something;
+// single line comment
 
-enum something_else;
+/* 
+    multi
+    line
+    comment
+*/
 
-fn function() -> ():
-    let x: something;
-    let y: something_else;
-    let z: i32 = 0;
+type Test1;
+type Test2 (i64, i64);
+type Test3 {
+    x: i64,
+    y: i64,
+    z: Test,
+}
+type Test4
+    = V1
+    | V2
+    | V3 (i64, i64)
+    | V4 { x: i64, y: i64 }
 
-    z = 5 + 5;
+fn function():
+    let x: Test1
+    let y: Test2 = 1 * 16 - 2
+    let z: i64 = 6 / 2
+
+    5 + 3
+    z = 5 + 5
+
+fn function() -> Test3:
+    return 3 + 3
+
+fn function() -> f64:
+    return 10 - 3
+
+fn main():
+    print(0)
+
