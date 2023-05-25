@@ -24,8 +24,8 @@ alias Test4 = enumer;
 
 fn function() {
     let x: Test1;
-    let y: Test2 = 1 * 16 - 2;
-    let z: i32 = 6 / 2;
+    let y: Test2 = 1 + 16 * 3 - 2;
+    let z: i32 = 6;
 
     5 + 3;
     z = 5 + 5;

@@ -49,6 +49,7 @@ fn main() {
         }
     }
     let (res, errs) = typeling_y::parse(&lexer);
+
     for e in errs {
         println!("{}", e.pp(&lexer, &typeling_y::token_epp));
     }

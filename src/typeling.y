@@ -1,4 +1,13 @@
 %start file
+
+%right "ASSIGN"
+%left "OR"
+%left "AND"
+%nonassoc "EQ" "NEQ" "LT" "GT" "LTE" "GTE"
+%left "PLUS" "MINUS"
+%left "TIMES" "DIVIDE" "MOD"
+%nonassoc "NOT" 
+
 %%
 file -> ParseResult<File>
     : item_list { Ok(File {items: $1?, span: $span}) }
@@ -188,32 +197,55 @@ ident -> ParseResult<Span>
     ;
 
 expr -> ParseResult<Expr>
-    : expr expr_op factor { Ok(Expr::BinOp(Box::new($1?), $2?, Box::new($3?)))}
+    : expr "AND" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::And, Box::new($3?)))} %prec "AND"
+    | expr "PLUS" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Add, Box::new($3?)))} %prec "PLUS"
+    | expr "MINUS" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Sub, Box::new($3?)))} %prec "MINUS"
+    | expr "TIMES" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Mul, Box::new($3?)))} %prec "TIMES"
+    | expr "DIVIDE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Div, Box::new($3?)))} %prec "DIVIDE"
+    | expr "MOD" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Mod, Box::new($3?)))} %prec "MOD"
+    | expr "EQ" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Eq, Box::new($3?)))} %prec "EQ"
+    | expr "NEQ" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Neq, Box::new($3?)))} %prec "NEQ"
+    | expr "LT" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Lt, Box::new($3?)))} %prec "LT"
+    | expr "LTE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Leq, Box::new($3?)))} %prec "LTE" 
+    | expr "GT" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Gt, Box::new($3?)))} %prec "GT"
+    | expr "GTE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Geq, Box::new($3?)))} %prec "GTE"
+    | expr "OR" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Or, Box::new($3?)))} %prec "OR"
     | factor { $1 }
     ;
 
 factor -> ParseResult<Expr>
-    : factor factor_op term { Ok(Expr::BinOp(Box::new($1?), $2?, Box::new($3?)))}
+    : unary_op term { Ok(Expr::UnOp($1?, Box::new($2?))) }
+    | array { $1 }
     | term { $1 }
+    ;
+
+array -> ParseResult<Expr>
+    : "LBRACKET" array_elems "RBRACKET" { Ok(Expr::Array($2?)) }
+    ;
+
+array_elems -> ParseResult<Vec<Expr>>
+    : %empty { Ok(vec![]) }
+    | array_elem_list { $1 }
+    ;
+
+array_elem_list -> ParseResult<Vec<Expr>>
+    : expr { Ok(vec![$1?]) }
+    | array_elem_list "COMMA" expr { flatten($1, $3) }
     ;
 
 term -> ParseResult<Expr>
     : "LPAREN" expr "RPAREN" { $2 }
     | "INT_LIT" { Ok( Expr::Int($lexer.span_str($1?.span()).parse().unwrap())) }
+    | "FLOAT_LIT" { Ok( Expr::Float($lexer.span_str($1?.span()).parse().unwrap())) }
+    | "FALSE" { Ok( Expr::Bool(false)) }
+    | "TRUE" { Ok( Expr::Bool(true)) }
+    | "STRING_LIT" { Ok( Expr::String($lexer.span_str($1?.span()).to_string())) }
     ;
 
-expr_op -> ParseResult<BinOp>
-    : "PLUS" { Ok(BinOp::Add) }
-    | "MINUS" { Ok(BinOp::Sub) }
+unary_op -> ParseResult<UnOp>
+    : "MINUS" { Ok(UnOp::Neg) }
+    | "NOT" { Ok(UnOp::Not) }
     ;
-
-factor_op -> ParseResult<BinOp>
-    : "TIMES" { Ok(BinOp::Mul) }
-    | "DIVIDE" { Ok(BinOp::Div) }
-    ;
-
-
-
 
 %%
 
