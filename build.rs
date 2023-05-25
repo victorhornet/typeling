@@ -9,7 +9,7 @@ fn main() {
                 .unwrap()
         })
         .lexer_in_src_dir("typeling.l")
-        .unwrap()
+        .expect("Initializing LexerBuilder failed")
         .build()
-        .unwrap();
+        .expect("Lexer build failed");
 }
