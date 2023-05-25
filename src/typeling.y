@@ -197,30 +197,30 @@ ident -> ParseResult<Span>
     ;
 
 expr -> ParseResult<Expr>
-    : expr "AND" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::And, Box::new($3?)))} %prec "AND"
-    | expr "PLUS" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Add, Box::new($3?)))} %prec "PLUS"
-    | expr "MINUS" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Sub, Box::new($3?)))} %prec "MINUS"
-    | expr "TIMES" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Mul, Box::new($3?)))} %prec "TIMES"
-    | expr "DIVIDE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Div, Box::new($3?)))} %prec "DIVIDE"
-    | expr "MOD" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Mod, Box::new($3?)))} %prec "MOD"
-    | expr "EQ" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Eq, Box::new($3?)))} %prec "EQ"
-    | expr "NEQ" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Neq, Box::new($3?)))} %prec "NEQ"
-    | expr "LT" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Lt, Box::new($3?)))} %prec "LT"
-    | expr "LTE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Leq, Box::new($3?)))} %prec "LTE" 
-    | expr "GT" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Gt, Box::new($3?)))} %prec "GT"
-    | expr "GTE" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Geq, Box::new($3?)))} %prec "GTE"
-    | expr "OR" expr { Ok(Expr::BinOp(Box::new($1?), BinOp::Or, Box::new($3?)))} %prec "OR"
+    : expr "AND" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::And($2?.span()), rhs: Box::new($3?), span: $span})} %prec "AND"
+    | expr "PLUS" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Add($2?.span()), rhs: Box::new($3?), span: $span})} %prec "PLUS"
+    | expr "MINUS" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Sub($2?.span()), rhs: Box::new($3?), span: $span})} %prec "MINUS"
+    | expr "TIMES" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Mul($2?.span()), rhs: Box::new($3?), span: $span})} %prec "TIMES"
+    | expr "DIVIDE" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Div($2?.span()), rhs: Box::new($3?), span: $span})} %prec "DIVIDE"
+    | expr "MOD" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Mod($2?.span()), rhs: Box::new($3?), span: $span})} %prec "MOD"
+    | expr "EQ" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Eq($2?.span()), rhs: Box::new($3?), span: $span})} %prec "EQ"
+    | expr "NEQ" expr { Ok(Expr::BinOp {lhs: Box::new($1?), op: BinOp::Neq($2?.span()), rhs: Box::new($3?), span: $span})} %prec "NEQ"
+    | expr "LT" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Lt($2?.span()), rhs: Box::new($3?), span: $span})} %prec "LT"
+    | expr "LTE" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Lte($2?.span()), rhs: Box::new($3?), span: $span})} %prec "LTE" 
+    | expr "GT" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gt($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GT"
+    | expr "GTE" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gte($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GTE"
+    | expr "OR" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Or($2?.span()), rhs: Box::new($3?), span: $span})} %prec "OR"
     | factor { $1 }
     ;
 
 factor -> ParseResult<Expr>
-    : unary_op term { Ok(Expr::UnOp($1?, Box::new($2?))) }
+    : unary_op term { Ok(Expr::UnOp{op: $1?, expr: Box::new($2?), span: $span}) }
     | array { $1 }
     | term { $1 }
     ;
 
 array -> ParseResult<Expr>
-    : "LBRACKET" array_elems "RBRACKET" { Ok(Expr::Array($2?)) }
+    : "LBRACKET" array_elems "RBRACKET" { Ok(Expr::Array{values: $2?, span: $span}) }
     ;
 
 array_elems -> ParseResult<Vec<Expr>>
@@ -235,16 +235,16 @@ array_elem_list -> ParseResult<Vec<Expr>>
 
 term -> ParseResult<Expr>
     : "LPAREN" expr "RPAREN" { $2 }
-    | "INT_LIT" { Ok( Expr::Int($lexer.span_str($1?.span()).parse().unwrap())) }
-    | "FLOAT_LIT" { Ok( Expr::Float($lexer.span_str($1?.span()).parse().unwrap())) }
-    | "FALSE" { Ok( Expr::Bool(false)) }
-    | "TRUE" { Ok( Expr::Bool(true)) }
-    | "STRING_LIT" { Ok( Expr::String($lexer.span_str($1?.span()).to_string())) }
+    | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
+    | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
+    | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
+    | "TRUE" { Ok( Expr::Bool{value: true, span: $span}) }
+    | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
     ;
 
 unary_op -> ParseResult<UnOp>
-    : "MINUS" { Ok(UnOp::Neg) }
-    | "NOT" { Ok(UnOp::Not) }
+    : "MINUS" { Ok(UnOp::Neg($span)) }
+    | "NOT" { Ok(UnOp::Not($span)) }
     ;
 
 %%

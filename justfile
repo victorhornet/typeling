@@ -3,3 +3,6 @@ parse SRC:
 
 rustparse SRC:
     cargo run -- -i {{SRC}} -lyn
+
+run SRC:
+    cargo run -- -i {{SRC}}

@@ -36,6 +36,7 @@ fn function() -> Test3 {
 }
 
 fn function() -> f32 {
+    let x: bool = (1 == 3) == false;
     return 10 - 3;
 }
 

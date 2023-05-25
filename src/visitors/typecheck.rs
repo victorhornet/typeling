@@ -5,45 +5,50 @@ use super::Visitor;
 pub struct TypeCheck;
 
 impl TypeCheck {}
-impl Visitor<Option<Type>> for TypeCheck {
-    fn visit_expr(&mut self, expr: &Expr) -> Option<Type> {
+impl Visitor<TypeCheckResult<Type>> for TypeCheck {
+    fn visit_expr(&mut self, expr: &Expr) -> TypeCheckResult<Type> {
         match expr {
-            Expr::Int(_) => Some(Type::Int),
-            Expr::BinOp(lhs, op, rhs) => {
+            Expr::Int { .. } => Ok(Type::Int),
+            Expr::BinOp { lhs, op, rhs, .. } => {
                 let lhs_type = self.visit_expr(lhs);
                 let rhs_type = self.visit_expr(rhs);
                 binop_type(op, (lhs_type?, rhs_type?))
             }
-            _ => None,
+            _ => unimplemented!(),
         }
     }
 }
 
-fn binop_type(binop: &BinOp, ops: (Type, Type)) -> Option<Type> {
+fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
     match binop {
-        BinOp::Add => match ops {
-            (Type::Int, Type::Int) => Some(Type::Int),
-            _ => None,
+        BinOp::Add(_) => match ops {
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::String, Type::String) => Ok(Type::String),
+            (Type::Float, Type::Float) => Ok(Type::Float),
+            _ => Err(TypeCheckError::TypeMismatch(ops)),
         },
-        BinOp::Sub => match ops {
-            (Type::Int, Type::Int) => Some(Type::Int),
-            _ => None,
+        BinOp::Sub(_) => match ops {
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Float),
+            _ => Err(TypeCheckError::TypeMismatch(ops)),
         },
-        BinOp::Mul => match ops {
-            (Type::Int, Type::Int) => Some(Type::Int),
-            _ => None,
+        BinOp::Mul(_) => match ops {
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Float),
+            _ => Err(TypeCheckError::TypeMismatch(ops)),
         },
 
-        BinOp::Div => match ops {
-            (Type::Int, Type::Int) => Some(Type::Int),
-            _ => None,
+        BinOp::Div(_) => match ops {
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Float),
+            _ => Err(TypeCheckError::TypeMismatch(ops)),
         },
-        _ => unimplemented!("Type error"),
+        _ => Err(TypeCheckError::Unimplemented),
     }
 }
 
 type TypeCheckResult<T> = Result<T, TypeCheckError>;
-enum TypeCheckError {
-    TypeMismatch,
+pub enum TypeCheckError {
+    TypeMismatch((Type, Type)),
     Unimplemented,
 }

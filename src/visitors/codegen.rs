@@ -151,12 +151,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_expr(&mut self, expr: &Expr) -> CodeGenResult<'ctx> {
         match expr {
-            Expr::BinOp(lhs, op, rhs) => {
+            Expr::BinOp { lhs, op, rhs, .. } => {
                 println!("BINOP");
                 let lhs = self.visit_expr(lhs)?.expect("expr should return a value");
                 let rhs = self.visit_expr(rhs)?.expect("expr should return a value");
                 match op {
-                    BinOp::Add => {
+                    BinOp::Add(_) => {
                         let result = self.builder.build_int_add(
                             lhs.into_int_value(),
                             rhs.into_int_value(),
@@ -164,7 +164,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(result.as_basic_value_enum()))
                     }
-                    BinOp::Sub => {
+                    BinOp::Sub(_) => {
                         let res = self.builder.build_int_sub(
                             lhs.into_int_value(),
                             rhs.into_int_value(),
@@ -172,7 +172,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    BinOp::Mul => {
+                    BinOp::Mul(_) => {
                         let res = self.builder.build_int_mul(
                             lhs.into_int_value(),
                             rhs.into_int_value(),
@@ -180,7 +180,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    BinOp::Div => {
+                    BinOp::Div(_) => {
                         let res = self.builder.build_int_signed_div(
                             lhs.into_int_value(),
                             rhs.into_int_value(),
@@ -191,10 +191,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     _ => Ok(None),
                 }
             }
-            Expr::Int(int) => Ok(Some(
+            Expr::Int { value, .. } => Ok(Some(
                 self.context
                     .i32_type()
-                    .const_int(*int as u64, false)
+                    .const_int(*value as u64, false)
                     .as_basic_value_enum(),
             )),
             _ => Ok(Some(

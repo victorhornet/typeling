@@ -162,47 +162,91 @@ pub struct FunctionCall {
 
 #[derive(Debug)]
 pub enum Expr {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    String(String),
-    Struct(String, Vec<Expr>),
-    Enum(String, String),
-    Array(Vec<Expr>),
-    Function(FunctionSig),
-    Var(String),
-    BinOp(Box<Expr>, BinOp, Box<Expr>),
-    UnOp(UnOp, Box<Expr>),
-    FunctionCall(FunctionCall),
+    Int {
+        value: i64,
+        span: Span,
+    },
+    Float {
+        value: f64,
+        span: Span,
+    },
+    Bool {
+        value: bool,
+        span: Span,
+    },
+    String {
+        value: String,
+        span: Span,
+    },
+    Struct {
+        name: Span,
+        fields: Vec<StructField>,
+        span: Span,
+    },
+    Enum {
+        name: Span,
+        variant: Span,
+        fields: Vec<Expr>,
+        span: Span,
+    },
+    Array {
+        values: Vec<Expr>,
+        span: Span,
+    },
+    Function {
+        function_proto: FunctionProto,
+        body: Block,
+        span: Span,
+    },
+    Var {
+        name: Span,
+        span: Span,
+    },
+    BinOp {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+        span: Span,
+    },
+    UnOp {
+        op: UnOp,
+        expr: Box<Expr>,
+        span: Span,
+    },
+    FunctionCall {
+        name: Span,
+        args: Vec<Expr>,
+        span: Span,
+    },
 }
 
 #[derive(Debug)]
 pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Eq,
-    Neq,
-    Lt,
-    Gt,
-    Leq,
-    Geq,
-    And,
-    Or,
+    Add(Span),
+    Sub(Span),
+    Mul(Span),
+    Div(Span),
+    Mod(Span),
+    Eq(Span),
+    Neq(Span),
+    Lt(Span),
+    Gt(Span),
+    Lte(Span),
+    Gte(Span),
+    And(Span),
+    Or(Span),
 }
 
 #[derive(Debug)]
 pub enum UnOp {
-    Neg,
-    Not,
+    Neg(Span),
+    Not(Span),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum IndentationLevel {
-    Tabs(u32),
-    Spaces(u32),
+    Tabs { amount: u32, span: Span },
+    Spaces { amount: u32, span: Span },
     None,
 }
 
