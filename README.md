@@ -7,7 +7,11 @@ Typeling is a simple programming language written for one of my Bachelor graduat
 ### comments
 
 ```typeling
-// single line comment
+// Single line comment
+
+/*
+Multi line comments
+*/
 
 ```
 
