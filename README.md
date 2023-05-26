@@ -17,21 +17,28 @@ Multi line comments
 
 ### variables
 
-```typeling
+```rust
 let x : type = value;
 ```
 
-```typeling
+```rust
 let x = 1;
 ```
 
 ### loops
 
+```rust
+while condition {
+	//body
+}
+
+```
+
 ### conditionals
 
 ### functions
 
-```typeling
+```rust
 fn function() {
     let x: something;
     let y: something_else;
@@ -47,7 +54,7 @@ fn main() {
 
 ### algebraic data types
 
-```typeling
+```rust
 type UnitType; // no keys
 
 type TupleType(i32); // keys are integers starting from 0
