@@ -36,6 +36,14 @@ while condition {
 
 ### conditionals
 
+```rust
+if cond {
+    //body
+} else {
+    //body
+}
+```
+
 ### functions
 
 ```rust
