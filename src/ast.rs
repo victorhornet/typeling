@@ -24,28 +24,28 @@ pub struct FunctionDecl {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionSig {
     pub name: Span,
     pub proto: FunctionProto,
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionProto {
     pub params: Vec<Param>,
     pub return_type: Type,
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Param {
     pub name: Span,
     pub param_type: Type,
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Unit,
     Int,

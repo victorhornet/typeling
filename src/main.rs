@@ -55,7 +55,7 @@ fn main() {
     }
 
     let ast = match res {
-        Some(r) => {
+        Some(ref r) => {
             if let Ok(file) = r {
                 file
             } else {
@@ -69,8 +69,8 @@ fn main() {
         println!("{ast:#?}");
     }
 
-    let typechecker = TypeChecker::new();
-    typechecker.check(&ast);
+    let mut typechecker = TypeChecker::new();
+    typechecker.check(ast);
 
     if args.no_codegen {
         return;

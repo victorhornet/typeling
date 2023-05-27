@@ -1,26 +1,79 @@
+use std::collections::HashMap;
+
+use cfgrammar::Span;
+
 use crate::ast::*;
 
 use super::Visitor;
 
-pub struct TypeChecker;
+pub struct TypeChecker {
+    vars: HashMap<Span, Type>,
+}
 
 impl TypeChecker {
     pub fn new() -> Self {
-        Self
+        Self {
+            vars: HashMap::new(),
+        }
     }
     pub fn check(&mut self, file: &File) -> TypeCheckResult<()> {
         //todo find all type check results
-        self.visit_file(file)
+        self.visit_file(file)?;
+        Ok(())
     }
 }
-impl Visitor<TypeCheckResult<Type>> for TypeChecker {
-    fn visit_expr(&mut self, expr: &Expr) -> TypeCheckResult<Type> {
+impl Visitor<TCResult> for TypeChecker {
+    fn visit_var_decl(&mut self, var_decl: &VarDecl) -> TCResult {
+        self.vars
+            .insert(var_decl.name.clone(), var_decl.var_type.clone());
+        Ok(None)
+    }
+    fn visit_assign(&mut self, assign: &Assign) -> TCResult {
+        let expr_type = self
+            .visit_expr(&assign.value)?
+            .expect("expr must have a type");
+        let var_type = self
+            .vars
+            .get(&assign.name)
+            .cloned()
+            .ok_or(TypeCheckError::UndefinedVariable(assign.name.clone()))?;
+        if expr_type != var_type {
+            return Err(TypeCheckError::AssignTypeMismatch {
+                expected: var_type,
+                found: expr_type,
+            });
+        }
+        Ok(None)
+    }
+    fn visit_expr(&mut self, expr: &Expr) -> TCResult {
         match expr {
-            Expr::Int { .. } => Ok(Type::Int),
+            Expr::Int { .. } => Ok(Some(Type::Int)),
+            Expr::Float { .. } => Ok(Some(Type::Float)),
+            Expr::String { .. } => Ok(Some(Type::String)),
+            Expr::Bool { .. } => Ok(Some(Type::Bool)),
+            Expr::Var { name, .. } => self
+                .vars
+                .get(name)
+                .cloned()
+                .ok_or(TypeCheckError::UndefinedVariable(name.clone()))
+                .map(Some),
             Expr::BinOp { lhs, op, rhs, .. } => {
                 let lhs_type = self.visit_expr(lhs);
                 let rhs_type = self.visit_expr(rhs);
-                binop_type(op, (lhs_type?, rhs_type?))
+                Ok(Some(binop_type(
+                    op,
+                    (
+                        lhs_type?.expect("expr must have a type"),
+                        rhs_type?.expect("expr must have a type"),
+                    ),
+                )?))
+            }
+            Expr::UnOp { op, expr, .. } => {
+                let expr_type = self.visit_expr(expr);
+                Ok(Some(unop_type(
+                    op,
+                    expr_type?.expect("expr must have a type"),
+                )?))
             }
             _ => unimplemented!(),
         }
@@ -33,75 +86,92 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::String, Type::String) => Ok(Type::String),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Sub(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Mul(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Div(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Mod(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
-        BinOp::And() => match ops {
+        BinOp::And(_) => match ops {
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
-        BinOp::Or() => match ops {
+        BinOp::Or(_) => match ops {
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Eq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
             (Type::String, Type::String) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Neq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
             (Type::String, Type::String) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Lt(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Gt(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Lte(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Gte(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::TypeMismatch(ops)),
+            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
-        _ => Err(TypeCheckError::Unimplemented),
+    }
+}
+
+fn unop_type(unop: &UnOp, op: Type) -> TypeCheckResult<Type> {
+    match unop {
+        UnOp::Not(_) => match op {
+            Type::Bool => Ok(Type::Bool),
+            t => Err(TypeCheckError::UnOpTypeMismatch(t)),
+        },
+        UnOp::Neg(_) => match op {
+            Type::Int => Ok(Type::Int),
+            Type::Float => Ok(Type::Float),
+            t => Err(TypeCheckError::UnOpTypeMismatch(t)),
+        },
     }
 }
 
 type TypeCheckResult<T> = Result<T, TypeCheckError>;
+type TCResult = TypeCheckResult<Option<Type>>;
 pub enum TypeCheckError {
-    TypeMismatch((Type, Type)),
+    AssignTypeMismatch { expected: Type, found: Type },
+    UnOpTypeMismatch(Type),
+    BinOpTypeMismatch((Type, Type)),
+    UndefinedVariable(Span),
     Unimplemented,
 }
