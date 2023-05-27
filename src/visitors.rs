@@ -1,9 +1,8 @@
 use crate::ast::*;
 mod codegen;
 mod typecheck;
-use cfgrammar::Span;
 pub use codegen::CodeGen;
-pub use typecheck::TypeCheck;
+pub use typecheck::TypeChecker;
 
 use self::typecheck::TypeCheckError;
 #[allow(unused_variables)]

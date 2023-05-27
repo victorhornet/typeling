@@ -6,7 +6,7 @@ use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path};
-use visitors::CodeGen;
+use visitors::{CodeGen, TypeChecker};
 
 lrlex_mod!("typeling.l");
 lrpar_mod!("typeling.y");
@@ -53,16 +53,24 @@ fn main() {
     for e in errs {
         println!("{}", e.pp(&lexer, &typeling_y::token_epp));
     }
-    if args.yacc {
-        match res {
-            Some(ref r) => {
-                if let Ok(file) = r {
-                    println!("{:#?}", file);
-                }
+
+    let ast = match res {
+        Some(r) => {
+            if let Ok(file) = r {
+                file
+            } else {
+                panic!("Parser found errors!");
             }
-            None => eprintln!("Parse failed"),
         }
+        None => panic!("Parse failed (no result)!"),
+    };
+
+    if args.yacc {
+        println!("{ast:#?}");
     }
+
+    let typechecker = TypeChecker::new();
+    typechecker.check(&ast);
 
     if args.no_codegen {
         return;
