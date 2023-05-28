@@ -364,6 +364,27 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     }
                 }
             }
+            Expr::UnOp { op, expr, .. } => {
+                let expr = self.visit_expr(expr)?.expect("expr should return a value");
+                match op {
+                    UnOp::Neg(_) => {
+                        let res = if expr.is_int_value() {
+                            self.builder
+                                .build_int_neg(expr.into_int_value(), "neg")
+                                .as_basic_value_enum()
+                        } else {
+                            self.builder
+                                .build_float_neg(expr.into_float_value(), "neg")
+                                .as_basic_value_enum()
+                        };
+                        Ok(Some(res))
+                    }
+                    UnOp::Not(_) => {
+                        let res = self.builder.build_not(expr.into_int_value(), "not");
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                }
+            }
             Expr::Int { value, .. } => Ok(Some(
                 self.context
                     .i64_type()
