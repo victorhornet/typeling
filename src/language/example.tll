@@ -6,14 +6,19 @@
     comment
 */
 
+/*
 type Test1;
 alias Test10 = Test1;
 type Test2 (i64, i64);
-type Test3 {
+*/
+
+type StructType {
     x: i64,
-    y: i64,
-    z: Test,
+    y: f64,
+    z: bool,
 }
+
+/*
 type Test4
     = V1 
     | V2 
@@ -21,6 +26,7 @@ type Test4
     | V4 { x: i64, y: i64 }
     ;
 alias Test4 = enumer;
+*/
 
 fn function1() {
     x: f64;
@@ -141,6 +147,10 @@ fn fn_def_test1() -> i64 {
 
 fn fn_def_test2() -> i64 {
     return 10;
+}
+
+fn returns_struct() -> StructType {
+    return 1;
 }
 
 fn main() -> i64 {
