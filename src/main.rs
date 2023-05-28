@@ -6,10 +6,10 @@ use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path};
-use visitors::{CodeGen, TypeChecker};
+use visitors::CodeGen;
 
-lrlex_mod!("typeling.l");
-lrpar_mod!("typeling.y");
+lrlex_mod!("language/typeling.l");
+lrpar_mod!("language/typeling.y");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -69,8 +69,8 @@ fn main() {
         println!("{ast:#?}");
     }
 
-    let mut typechecker = TypeChecker::new();
-    typechecker.check(ast).expect("Type checking failed");
+    // let mut typechecker = TypeChecker::new();
+    // typechecker.check(ast).expect("Type checking failed");
 
     if args.no_codegen {
         return;

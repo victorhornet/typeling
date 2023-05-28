@@ -26,11 +26,11 @@ item -> ParseResult<Item>
     ;
 
 alias_decl -> ParseResult<AliasDecl>
-    : "ALIAS" ident "ASSIGN" type "SEMICOLON" { Ok(AliasDecl {name: $2?, original: $4?, span: $span}) }
+    : "ALIAS" "IDENT" "ASSIGN" type "SEMICOLON" { Ok(AliasDecl {name: $2?.span(), original: $4?, span: $span}) }
     ;
 
 type_decl -> ParseResult<TypeDecl>
-    : "TYPE" ident type_def { Ok(TypeDecl {name: $2?, def: $3?, span: $span}) }
+    : "TYPE" "IDENT" type_def { Ok(TypeDecl {name: $2?.span(), def: $3?, span: $span}) }
     ;
 
 type_def -> ParseResult<TypeDef>
@@ -62,7 +62,7 @@ struct_fields -> ParseResult<Vec<StructField>>
     ;
 
 struct_field -> ParseResult<StructField>
-    : ident "COLON" type { Ok(StructField { key: $1?, ty: $3?, span: $span }) }
+    : "IDENT" "COLON" type { Ok(StructField { key: $1?.span(), ty: $3?, span: $span }) }
     ;
 
 enum_variants -> ParseResult<Vec<EnumVariant>>
@@ -71,7 +71,7 @@ enum_variants -> ParseResult<Vec<EnumVariant>>
     ;
 
 enum_variant -> ParseResult<EnumVariant>
-    : ident variant_type_def { Ok(EnumVariant {tag: $1?, ty: $2?, span: $span}) }
+    : "IDENT" variant_type_def { Ok(EnumVariant {tag: $1?.span(), ty: $2?, span: $span}) }
     ;
 
 variant_type_def -> ParseResult<TypeDef>
@@ -85,7 +85,7 @@ function_decl -> ParseResult<FunctionDecl>
     ;
 
 function_sig -> ParseResult<FunctionSig>
-    : "FN" ident function_proto { Ok(FunctionSig {name: $2?, proto: $3?, span: $span}) }
+    : "FN" "IDENT" function_proto { Ok(FunctionSig {name: $2?.span(), proto: $3?, span: $span}) }
     ;
 
 function_proto -> ParseResult<FunctionProto>
@@ -108,7 +108,7 @@ param_list -> ParseResult<Vec<Param>>
     ;
 
 param -> ParseResult<Param>
-    : ident "COLON" type { Ok(Param {name: $1?, param_type: $3?, span: $span}) }
+    : "IDENT" "COLON" type { Ok(Param {name: $1?.span(), param_type: $3?, span: $span}) }
     ;
 
 block -> ParseResult<Block>
@@ -157,17 +157,17 @@ print_stmt -> ParseResult<Print>
     ;
 
 var_decl -> ParseResult<VarDecl>
-    : "LET" ident "COLON" type "SEMICOLON" { Ok(VarDecl {name: $2?, var_type: $4?, value: None, span: $span}) }
-    | "LET" ident "COLON" type "ASSIGN" expr "SEMICOLON" { Ok(VarDecl {name: $2?, var_type: $4?, value: Some($6?), span: $span}) }
+    : "LET" "IDENT" "COLON" type "SEMICOLON" { Ok(VarDecl {name: $2?.span(), var_type: $4?, value: None, span: $span}) }
+    | "LET" "IDENT" "COLON" type "ASSIGN" expr "SEMICOLON" { Ok(VarDecl {name: $2?.span(), var_type: $4?, value: Some($6?), span: $span}) }
     ;
 
 assign_stmt -> ParseResult<Assign>
-    : ident "ASSIGN" expr "SEMICOLON" { Ok(Assign {name: $1?, value: $3?, span: $span}) }
+    : "IDENT" "ASSIGN" expr "SEMICOLON" { Ok(Assign {name: $1?.span(), value: $3?, span: $span}) }
     ;
 
 type -> ParseResult<Type>
     : primitive_type { $1 }
-    | ident { Ok(Type::Ident($1?)) }
+    | "IDENT" { Ok(Type::Ident($1?.span())) }
     ;
 
 primitive_type -> ParseResult<Type>
@@ -179,7 +179,7 @@ primitive_type -> ParseResult<Type>
     ;
 
 function_call -> ParseResult<FunctionCall>
-    : ident "LPAREN" args "RPAREN" { Ok(FunctionCall {name: $1?, args: $3?, span: $span}) }
+    : "IDENT" "LPAREN" args "RPAREN" { Ok(FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
     ;
 
 args -> ParseResult<Vec<Expr>>
@@ -190,10 +190,6 @@ args -> ParseResult<Vec<Expr>>
 arg_list -> ParseResult<Vec<Expr>>
     : expr { Ok(vec![$1?])}
     | arg_list "COMMA" expr { flatten($1, $3) }
-    ;
-
-ident -> ParseResult<Span>
-    : "IDENT" { Ok($span) }
     ;
 
 expr -> ParseResult<Expr>
@@ -234,7 +230,8 @@ array_elem_list -> ParseResult<Vec<Expr>>
     ;
 
 term -> ParseResult<Expr>
-    : "LPAREN" expr "RPAREN" { $2 }
+    : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
+    | "LPAREN" expr "RPAREN" { $2 }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }

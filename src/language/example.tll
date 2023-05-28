@@ -8,35 +8,37 @@
 
 type Test1;
 alias Test10 = Test1;
-type Test2 (i32, i32);
+type Test2 (i64, i64);
 type Test3 {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
     z: Test,
 }
 type Test4
     = V1 
     | V2 
-    | V3 (i32, i32)
-    | V4 { x: i32, y: i32 }
+    | V3 (i64, i64)
+    | V4 { x: i64, y: i64 }
     ;
 alias Test4 = enumer;
 
-fn function() {
+fn function1() {
     let x: Test1;
     let y: Test2 = 1 + 16 * 3 - 2;
-    let z: i32 = 6;
+    let z: i64 = 6;
 
     5 + 3;
     z = 5 + 5;
 } 
 
-fn function() -> Test3 {
-    return 3 + 3;
+fn function2() -> i64 {
+    let x: i64 = 4;
+    let z: i64 = 1 + x;
+    return z * x;
 }
 
-fn function() -> f32 {
-    let x: bool = (1 == 3) == false;
+fn function3() -> f64 {
+
     return 10 - 3;
 }
 

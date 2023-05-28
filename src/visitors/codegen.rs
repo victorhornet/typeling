@@ -1,6 +1,5 @@
 use std::{collections::HashMap, error::Error};
 
-use cfgrammar::Span;
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -23,14 +22,15 @@ pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
     pub printf: FunctionValue<'ctx>,
-    pub stack: Stack<'ctx>,
+    pub stack: Stack<'input, 'ctx>,
+    pub functions: HashMap<&'input str, FunctionValue<'ctx>>,
 }
 
 #[derive(Default)]
-pub struct Stack<'ctx> {
-    frames: Vec<StackFrame<'ctx>>,
+pub struct Stack<'input, 'ctx> {
+    frames: Vec<StackFrame<'input, 'ctx>>,
 }
-impl<'ctx> Stack<'ctx> {
+impl<'input, 'ctx> Stack<'input, 'ctx> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -40,16 +40,16 @@ impl<'ctx> Stack<'ctx> {
     pub fn pop(&mut self) {
         self.frames.pop();
     }
-    pub fn insert(&mut self, span: Span, value: PointerValue<'ctx>) {
+    pub fn insert(&mut self, name: &'input str, value: PointerValue<'ctx>) {
         self.frames
             .last_mut()
             .expect("stack must have at least one frame")
             .variables
-            .insert(span, value);
+            .insert(name, value);
     }
-    pub fn get(&self, span: Span) -> Option<PointerValue<'ctx>> {
+    pub fn get(&self, name: &'input str) -> Option<PointerValue<'ctx>> {
         for frame in self.frames.iter().rev() {
-            if let Some(value) = frame.variables.get(&span) {
+            if let Some(value) = frame.variables.get(name) {
                 return Some(*value);
             }
         }
@@ -58,10 +58,10 @@ impl<'ctx> Stack<'ctx> {
 }
 
 #[derive(Default)]
-struct StackFrame<'ctx> {
-    pub variables: HashMap<Span, PointerValue<'ctx>>,
+struct StackFrame<'input, 'ctx> {
+    pub variables: HashMap<&'input str, PointerValue<'ctx>>,
 }
-impl<'ctx> StackFrame<'ctx> {
+impl<'input, 'ctx> StackFrame<'input, 'ctx> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -75,11 +75,12 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         let module = context.create_module("main");
         let builder = context.create_builder();
 
-        let i32_type = context.i32_type();
+        let i64_type = context.i64_type();
         let ptr_type = context.i8_type().ptr_type(AddressSpace::from(0));
-        let fn_type = i32_type.fn_type(&[BasicMetadataTypeEnum::PointerType(ptr_type)], true);
+        let fn_type = i64_type.fn_type(&[BasicMetadataTypeEnum::PointerType(ptr_type)], true);
         let printf = module.add_function("printf", fn_type, None);
         let stack = Stack::new();
+        let functions = HashMap::new();
         Self {
             lexer,
             context,
@@ -87,6 +88,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             builder,
             printf,
             stack,
+            functions,
         }
     }
     pub fn compile(&mut self, file: &File) {
@@ -97,14 +99,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
-        let i32_type = self.context.i32_type();
-        let fn_type = i32_type.fn_type(&[], false);
+        let i64_type = self.context.i64_type();
+        let fn_type = i64_type.fn_type(&[], false);
 
         let function = self.module.add_function("add", fn_type, None);
         let basic_block = self.context.append_basic_block(function, "entry");
 
         self.builder.position_at_end(basic_block);
-        let return_value = i32_type.const_int(42, false);
+        let return_value = i64_type.const_int(42, false);
         self.builder.build_return(Some(&return_value));
         println!(
             "Generated LLVM IR: {}",
@@ -134,19 +136,24 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         Ok(None)
     }
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> CodeGenResult<'ctx> {
-        let fn_type = self.context.i32_type().fn_type(&[], false);
         let fn_name = self.lexer.span_str(function_decl.function_sig.name);
+        if self.functions.contains_key(fn_name) {
+            panic!("function {} already exists", fn_name)
+        }
+        let fn_type = self.context.i64_type().fn_type(&[], false);
         let fn_value = self.module.add_function(fn_name, fn_type, None);
+        self.functions.insert(fn_name, fn_value);
         let basic_block = self.context.append_basic_block(fn_value, "entry");
         self.builder.position_at_end(basic_block);
         self.visit_block(&function_decl.body)?;
-        if let Type::Unit = function_decl.function_sig.proto.return_type {
-            self.builder.build_return(None);
-        } else {
-            //todo change this to check if the last statement is a return
-            let return_value = self.context.i32_type().const_int(10, false);
-            self.builder.build_return(Some(&return_value));
-        }
+        if basic_block.get_terminator().is_none() {
+            if let Type::Unit = function_decl.function_sig.proto.return_type {
+                self.builder.build_return(None);
+            } else {
+                //todo: return error
+                panic!("function must return a value");
+            }
+        };
         Ok(None)
     }
     fn visit_block(&mut self, block: &Block) -> CodeGenResult<'ctx> {
@@ -161,27 +168,26 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::Return(return_) => self.visit_return(return_),
             Statement::Expr(expr) => self.visit_expr(expr),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
-            Statement::Print(print) => self.visit_print(print),
             _ => Ok(None),
         }
     }
 
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
-        let var_type = self.context.i32_type();
+        let var_type = self.context.i64_type();
         if self
             .stack
             .frames
             .last()
             .unwrap()
             .variables
-            .contains_key(&var_decl.name)
+            .contains_key(var_name)
         {
             panic!("variable already declared")
         }
 
         let var = self.builder.build_alloca(var_type, var_name);
-        self.stack.insert(var_decl.name, var);
+        self.stack.insert(var_name, var);
 
         let var_value = match &var_decl.value {
             Some(var_value) => Some(
@@ -254,19 +260,28 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             Expr::Int { value, .. } => Ok(Some(
                 self.context
-                    .i32_type()
+                    .i64_type()
                     .const_int(*value as u64, false)
                     .as_basic_value_enum(),
             )),
+            Expr::Var { name, .. } => {
+                let var_name = self.lexer.span_str(*name);
+                let var = self.stack.get(var_name).expect("variable not found");
+                let val = self.builder.build_load(var, var_name);
+                Ok(Some(val))
+            }
             _ => Ok(Some(
                 self.context
-                    .i32_type()
+                    .i64_type()
                     .const_int(69, false)
                     .as_basic_value_enum(),
             )),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> CodeGenResult<'ctx> {
+        Ok(None)
+    }
+    fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {
         Ok(None)
     }
     fn visit_print(&mut self, print: &Print) -> CodeGenResult<'ctx> {
