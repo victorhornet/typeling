@@ -21,50 +21,8 @@ pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
-    pub printf: FunctionValue<'ctx>,
     pub stack: Stack<'input, 'ctx>,
     pub functions: HashMap<&'input str, FunctionValue<'ctx>>,
-}
-
-#[derive(Default)]
-pub struct Stack<'input, 'ctx> {
-    frames: Vec<StackFrame<'input, 'ctx>>,
-}
-impl<'input, 'ctx> Stack<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn push(&mut self) {
-        self.frames.push(StackFrame::new());
-    }
-    pub fn pop(&mut self) {
-        self.frames.pop();
-    }
-    pub fn insert(&mut self, name: &'input str, value: BasicValueEnum<'ctx>) {
-        self.frames
-            .last_mut()
-            .expect("stack must have at least one frame")
-            .variables
-            .insert(name, value);
-    }
-    pub fn get(&self, name: &'input str) -> Option<BasicValueEnum<'ctx>> {
-        for frame in self.frames.iter().rev() {
-            if let Some(value) = frame.variables.get(name) {
-                return Some(*value);
-            }
-        }
-        None
-    }
-}
-
-#[derive(Default)]
-struct StackFrame<'input, 'ctx> {
-    pub variables: HashMap<&'input str, BasicValueEnum<'ctx>>,
-}
-impl<'input, 'ctx> StackFrame<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
-    }
 }
 
 impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
@@ -80,13 +38,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         let fn_type = i64_type.fn_type(&[BasicMetadataTypeEnum::PointerType(ptr_type)], true);
         let printf = module.add_function("printf", fn_type, None);
         let stack = Stack::new();
-        let functions = HashMap::new();
+        let mut functions = HashMap::new();
+        functions.insert("printf", printf);
         Self {
             lexer,
             context,
             module,
             builder,
-            printf,
             stack,
             functions,
         }
@@ -99,19 +57,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
-        let i64_type = self.context.i64_type();
-        let fn_type = i64_type.fn_type(&[], false);
-
-        let function = self.module.add_function("add", fn_type, None);
-        let basic_block = self.context.append_basic_block(function, "entry");
-
-        self.builder.position_at_end(basic_block);
-        let return_value = i64_type.const_int(42, false);
-        self.builder.build_return(Some(&return_value));
-        println!(
-            "Generated LLVM IR:\n{}",
-            self.module.print_to_string().to_string()
-        );
+        println!("{}", self.module.print_to_string().to_string());
 
         unsafe {
             type Main = unsafe extern "C" fn() -> ();
@@ -504,6 +450,47 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         // self.builder
         //     .build_call(self.printf, &[ptr.into()], "printf");
         Ok(None)
+    }
+}
+
+#[derive(Default)]
+pub struct Stack<'input, 'ctx> {
+    frames: Vec<StackFrame<'input, 'ctx>>,
+}
+impl<'input, 'ctx> Stack<'input, 'ctx> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn push(&mut self) {
+        self.frames.push(StackFrame::new());
+    }
+    pub fn pop(&mut self) {
+        self.frames.pop();
+    }
+    pub fn insert(&mut self, name: &'input str, value: BasicValueEnum<'ctx>) {
+        self.frames
+            .last_mut()
+            .expect("stack must have at least one frame")
+            .variables
+            .insert(name, value);
+    }
+    pub fn get(&self, name: &'input str) -> Option<BasicValueEnum<'ctx>> {
+        for frame in self.frames.iter().rev() {
+            if let Some(value) = frame.variables.get(name) {
+                return Some(*value);
+            }
+        }
+        None
+    }
+}
+
+#[derive(Default)]
+struct StackFrame<'input, 'ctx> {
+    pub variables: HashMap<&'input str, BasicValueEnum<'ctx>>,
+}
+impl<'input, 'ctx> StackFrame<'input, 'ctx> {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
