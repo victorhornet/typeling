@@ -135,6 +135,14 @@ fn fib_while(n: i64) -> i64 {
     return x;
 }
 
+fn fn_def_test1() -> i64 {
+    return fn_def_test2();
+}
+
+fn fn_def_test2() -> i64 {
+    return 10;
+}
+
 fn main() -> i64 {
-    return fib_while(10);
+    return fn_def_test1();
 }

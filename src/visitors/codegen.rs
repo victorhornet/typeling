@@ -57,6 +57,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
 
+        self.define_functions(file);
+
         self.walk_file(file);
 
         println!("{}", self.module.print_to_string().to_string());
@@ -66,6 +68,53 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             let res = jit_function.call();
             println!("res: {}", res)
+        }
+    }
+
+    fn define_functions(&mut self, file: &File) {
+        for item in &file.items {
+            if let Item::FunctionDecl(function_decl) = item {
+                let fn_name = self.lexer.span_str(function_decl.function_sig.name);
+                if self.functions.contains_key(fn_name) {
+                    panic!("function {} already exists", fn_name)
+                }
+                self.stack.push();
+                let params: Vec<BasicMetadataTypeEnum> = function_decl
+                    .function_sig
+                    .proto
+                    .params
+                    .iter()
+                    .map(|param| {
+                        let param_type: BasicMetadataTypeEnum = match param.param_type {
+                            Type::Unit => panic!("cant have unit type argument"), //todo return error
+                            Type::Int => BasicMetadataTypeEnum::IntType(self.context.i64_type()),
+                            Type::Float => {
+                                BasicMetadataTypeEnum::FloatType(self.context.f64_type())
+                            }
+                            Type::Bool => BasicMetadataTypeEnum::IntType(self.context.bool_type()),
+                            Type::String => todo!("string type"),
+                            Type::Array(_) => todo!("array type"),
+                            Type::Function(_) => todo!("function type"),
+                            Type::Ident(_) => todo!("user defined type"),
+                        };
+                        param_type
+                    })
+                    .collect();
+
+                let fn_type = match function_decl.function_sig.proto.return_type {
+                    Type::Unit => self.context.void_type().fn_type(&params, false),
+                    Type::Int => self.context.i64_type().fn_type(&params, false),
+                    Type::Float => self.context.f64_type().fn_type(&params, false),
+                    Type::Bool => self.context.bool_type().fn_type(&params, false),
+                    Type::String => todo!("string type"),
+                    Type::Array(_) => todo!("array type"),
+                    Type::Function(_) => todo!("function type"),
+                    Type::Ident(_) => todo!("user defined type"),
+                };
+
+                let fn_value = self.module.add_function(fn_name, fn_type, None);
+                self.functions.insert(fn_name, fn_value);
+            }
         }
     }
 }
@@ -86,45 +135,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> CodeGenResult<'ctx> {
         let fn_name = self.lexer.span_str(function_decl.function_sig.name);
-        if self.functions.contains_key(fn_name) {
-            panic!("function {} already exists", fn_name)
-        }
-        self.stack.push();
-        let params: Vec<BasicMetadataTypeEnum> = function_decl
-            .function_sig
-            .proto
-            .params
-            .iter()
-            .map(|param| {
-                let param_name = self.lexer.span_str(param.name);
-                let param_type: BasicMetadataTypeEnum = match param.param_type {
-                    Type::Unit => panic!("cant have unit type argument"), //todo return error
-                    Type::Int => BasicMetadataTypeEnum::IntType(self.context.i64_type()),
-                    Type::Float => BasicMetadataTypeEnum::FloatType(self.context.f64_type()),
-                    Type::Bool => BasicMetadataTypeEnum::IntType(self.context.bool_type()),
-                    Type::String => todo!("string type"),
-                    Type::Array(_) => todo!("array type"),
-                    Type::Function(_) => todo!("function type"),
-                    Type::Ident(_) => todo!("user defined type"),
-                };
-                param_type
-            })
-            .collect();
 
-        let fn_type = match function_decl.function_sig.proto.return_type {
-            Type::Unit => self.context.void_type().fn_type(&params, false),
-            Type::Int => self.context.i64_type().fn_type(&params, false),
-            Type::Float => self.context.f64_type().fn_type(&params, false),
-            Type::Bool => self.context.bool_type().fn_type(&params, false),
-            Type::String => todo!("string type"),
-            Type::Array(_) => todo!("array type"),
-            Type::Function(_) => todo!("function type"),
-            Type::Ident(_) => todo!("user defined type"),
-        };
-
-        let fn_value = self.module.add_function(fn_name, fn_type, None);
-
-        self.current_function = Some(fn_value);
+        let fn_value = self.functions.get(fn_name).expect("function must exist");
+        self.current_function = Some(*fn_value);
 
         for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
             let param_name = self.lexer.span_str(param.name);
@@ -133,9 +146,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             self.stack.insert(param_name, param_value);
         }
 
-        self.functions.insert(fn_name, fn_value);
-
-        let entry_basic_block = self.context.append_basic_block(fn_value, "entry");
+        let entry_basic_block = self.context.append_basic_block(*fn_value, "entry");
         self.builder.position_at_end(entry_basic_block);
 
         self.walk_block(&function_decl.body);
