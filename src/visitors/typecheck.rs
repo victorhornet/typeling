@@ -6,15 +6,14 @@ use crate::ast::*;
 
 use super::Visitor;
 
+#[derive(Default)]
 pub struct TypeChecker {
     vars: HashMap<Span, Type>,
 }
 
 impl TypeChecker {
     pub fn new() -> Self {
-        Self {
-            vars: HashMap::new(),
-        }
+        Self::default()
     }
     pub fn check(&mut self, file: &File) -> TypeCheckResult<()> {
         //todo find all type check results
@@ -24,8 +23,7 @@ impl TypeChecker {
 }
 impl Visitor<TCResult> for TypeChecker {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> TCResult {
-        self.vars
-            .insert(var_decl.name.clone(), var_decl.var_type.clone());
+        self.vars.insert(var_decl.name, var_decl.var_type.clone());
         Ok(None)
     }
     fn visit_assign(&mut self, assign: &Assign) -> TCResult {
@@ -36,7 +34,7 @@ impl Visitor<TCResult> for TypeChecker {
             .vars
             .get(&assign.name)
             .cloned()
-            .ok_or(TypeCheckError::UndefinedVariable(assign.name.clone()))?;
+            .ok_or(TypeCheckError::UndefinedVariable(assign.name))?;
         if expr_type != var_type {
             return Err(TypeCheckError::AssignTypeMismatch {
                 expected: var_type,
@@ -55,7 +53,7 @@ impl Visitor<TCResult> for TypeChecker {
                 .vars
                 .get(name)
                 .cloned()
-                .ok_or(TypeCheckError::UndefinedVariable(name.clone()))
+                .ok_or(TypeCheckError::UndefinedVariable(name.to_owned()))
                 .map(Some),
             Expr::BinOp { lhs, op, rhs, .. } => {
                 let lhs_type = self.visit_expr(lhs);
@@ -168,6 +166,8 @@ fn unop_type(unop: &UnOp, op: Type) -> TypeCheckResult<Type> {
 
 type TypeCheckResult<T> = Result<T, TypeCheckError>;
 type TCResult = TypeCheckResult<Option<Type>>;
+
+#[derive(Debug)]
 pub enum TypeCheckError {
     AssignTypeMismatch { expected: Type, found: Type },
     UnOpTypeMismatch(Type),

@@ -70,7 +70,7 @@ fn main() {
     }
 
     let mut typechecker = TypeChecker::new();
-    typechecker.check(ast);
+    typechecker.check(ast).expect("Type checking failed");
 
     if args.no_codegen {
         return;
