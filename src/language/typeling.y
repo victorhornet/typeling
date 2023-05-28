@@ -159,8 +159,8 @@ print_stmt -> ParseResult<Print>
     ;
 
 var_decl -> ParseResult<VarDecl>
-    : "LET" "IDENT" "COLON" type "SEMICOLON" { Ok(VarDecl {name: $2?.span(), var_type: $4?, value: None, span: $span}) }
-    | "LET" "IDENT" "COLON" type "ASSIGN" expr "SEMICOLON" { Ok(VarDecl {name: $2?.span(), var_type: $4?, value: Some($6?), span: $span}) }
+    : "IDENT" "COLON" type "SEMICOLON" { Ok(VarDecl {name: $1?.span(), var_type: $3?, value: None, span: $span}) }
+    | "IDENT" "COLON" type "ASSIGN" expr "SEMICOLON" { Ok(VarDecl {name: $1?.span(), var_type: $3?, value: Some($5?), span: $span}) }
     ;
 
 assign_stmt -> ParseResult<Assign>

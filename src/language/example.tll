@@ -23,55 +23,55 @@ type Test4
 alias Test4 = enumer;
 
 fn function1() {
-    let x: f64;
-    let y: i64 = 1 + 16 * 3 - 2;
-    let z: i64 = 6;
+    x: f64;
+    y: i64 = 1 + 16 * 3 - 2;
+    z: i64 = 6;
     5 + 3;
     z = 5 + 5;
 } 
 
 fn function2() -> i64 {
-    let x: i64 = 4;
-    let z: i64 = 1 + x;
+    x: i64 = 4;
+    z: i64 = 1 + x;
     return z * x;
 }
 
 fn function3() -> f64 {
-    let t : bool = true;
-    let f : bool = false;
+    t : bool = true;
+    f : bool = false;
     return 10 - 3;
 }
 
 fn i64_comparisons() {
-    let x: i64 = 4;
-    let y: i64 = 5;
+    x: i64 = 4;
+    y: i64 = 5;
     
-    let c1 : bool = x == y;
-    let c2 : bool = x != y;
-    let c3 : bool = x < y;
-    let c4 : bool = x > y;
-    let c5 : bool = x <= y;
-    let c6 : bool = x >= y;
+    c1 : bool = x == y;
+    c2 : bool = x != y;
+    c3 : bool = x < y;
+    c4 : bool = x > y;
+    c5 : bool = x <= y;
+    c6 : bool = x >= y;
 }
 
 fn bool_operations() -> bool {
-    let t : bool = true;
-    let f : bool = false;
+    t : bool = true;
+    f : bool = false;
     return t && f || t;
 }
 
 fn function_call() -> bool {
-    let x: i64 = function3();
+    x: i64 = function3();
     return true;
 }
 
 fn unops() {
-    let x: i64 = 4;
-    let nx: i64 = -x;
-    let y: f64 = 4.0;
-    let ny: f64 = -y;
-    let t: bool = true;
-    let f: bool = !t;
+    x: i64 = 4;
+    nx: i64 = -x;
+    y: f64 = 4.0;
+    ny: f64 = -y;
+    t: bool = true;
+    f: bool = !t;
 }
 
 fn main() {
