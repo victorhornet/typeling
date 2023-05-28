@@ -5,9 +5,9 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
-    types::BasicMetadataTypeEnum,
+    types::{BasicMetadataTypeEnum, BasicTypeEnum},
     values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
-    AddressSpace, OptimizationLevel,
+    AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
@@ -109,7 +109,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         let return_value = i64_type.const_int(42, false);
         self.builder.build_return(Some(&return_value));
         println!(
-            "Generated LLVM IR: {}",
+            "Generated LLVM IR:\n{}",
             self.module.print_to_string().to_string()
         );
 
@@ -163,18 +163,43 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         Ok(None)
     }
     fn visit_statement(&mut self, statement: &Statement) -> CodeGenResult<'ctx> {
-        println!("{statement:?}");
         match statement {
             Statement::Return(return_) => self.visit_return(return_),
             Statement::Expr(expr) => self.visit_expr(expr),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
+            Statement::Assign(assign) => self.visit_assign(assign),
             _ => Ok(None),
         }
     }
 
+    fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
+        let var_name = self.lexer.span_str(assign.name);
+        let var_ptr = self
+            .stack
+            .get(var_name)
+            .expect(format!("variable {var_name} not found").as_str());
+        let var_value = self
+            .visit_expr(&assign.value)?
+            .expect("expr must return a value");
+        self.builder.build_store(var_ptr, var_value);
+
+        Ok(None)
+    }
+
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
-        let var_type = self.context.i64_type();
+        // todo: add type inferenece
+        let var_type = match &var_decl.var_type {
+            Type::Unit => panic!("cannot declare a variable of type unit"),
+            Type::Int => BasicTypeEnum::IntType(self.context.i64_type()),
+            Type::Float => BasicTypeEnum::FloatType(self.context.f64_type()),
+            Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
+            Type::String => todo!("string type"),
+            Type::Ident(_) => todo!("custom type"),
+            Type::Array(_) => todo!("array type"),
+            Type::Function(_) => todo!("function type"),
+        };
+
         if self
             .stack
             .frames
@@ -219,10 +244,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     fn visit_expr(&mut self, expr: &Expr) -> CodeGenResult<'ctx> {
         match expr {
             Expr::BinOp { lhs, op, rhs, .. } => {
-                println!("BINOP");
                 let lhs = self.visit_expr(lhs)?.expect("expr should return a value");
                 let rhs = self.visit_expr(rhs)?.expect("expr should return a value");
+                //todo support other types
                 match op {
+                    //ints, floats, strings
                     BinOp::Add(_) => {
                         let result = self.builder.build_int_add(
                             lhs.into_int_value(),
@@ -239,6 +265,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
+                    //ints, floats
                     BinOp::Mul(_) => {
                         let res = self.builder.build_int_mul(
                             lhs.into_int_value(),
@@ -255,12 +282,103 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    _ => Ok(None),
+                    // ints
+                    BinOp::Mod(_) => {
+                        let res = self.builder.build_int_signed_rem(
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "mod",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    // ints, floats, bools, strings
+                    BinOp::Eq(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::EQ,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "eq",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    BinOp::Neq(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::NE,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "neq",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    // ints, floats
+                    BinOp::Gt(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::SGT,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "gt",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    BinOp::Gte(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::SGE,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "gte",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    BinOp::Lt(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::SLT,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "lt",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    BinOp::Lte(_) => {
+                        let res = self.builder.build_int_compare(
+                            IntPredicate::SLE,
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "lte",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    // bools
+                    BinOp::And(_) => {
+                        let res = self.builder.build_and(
+                            lhs.into_int_value(),
+                            rhs.into_int_value(),
+                            "and",
+                        );
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
+                    BinOp::Or(_) => {
+                        let res =
+                            self.builder
+                                .build_or(lhs.into_int_value(), rhs.into_int_value(), "or");
+                        Ok(Some(res.as_basic_value_enum()))
+                    }
                 }
             }
             Expr::Int { value, .. } => Ok(Some(
                 self.context
                     .i64_type()
+                    .const_int(*value as u64, false)
+                    .as_basic_value_enum(),
+            )),
+            Expr::Float { value, .. } => Ok(Some(
+                self.context
+                    .f64_type()
+                    .const_float(*value)
+                    .as_basic_value_enum(),
+            )),
+            Expr::Bool { value, .. } => Ok(Some(
+                self.context
+                    .bool_type()
                     .const_int(*value as u64, false)
                     .as_basic_value_enum(),
             )),

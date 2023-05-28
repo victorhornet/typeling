@@ -23,10 +23,9 @@ type Test4
 alias Test4 = enumer;
 
 fn function1() {
-    let x: Test1;
-    let y: Test2 = 1 + 16 * 3 - 2;
+    let x: f64;
+    let y: i64 = 1 + 16 * 3 - 2;
     let z: i64 = 6;
-
     5 + 3;
     z = 5 + 5;
 } 
@@ -38,8 +37,27 @@ fn function2() -> i64 {
 }
 
 fn function3() -> f64 {
-
+    let t : bool = true;
+    let f : bool = false;
     return 10 - 3;
+}
+
+fn i64_comparisons() {
+    let x: i64 = 4;
+    let y: i64 = 5;
+    
+    let c1 : bool = x == y;
+    let c2 : bool = x != y;
+    let c3 : bool = x < y;
+    let c4 : bool = x > y;
+    let c5 : bool = x <= y;
+    let c6 : bool = x >= y;
+}
+
+fn bool_operations() -> bool {
+    let t : bool = true;
+    let f : bool = false;
+    return t && f || t;
 }
 
 fn main() {
