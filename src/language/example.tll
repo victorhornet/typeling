@@ -111,6 +111,30 @@ fn fib(n: i64) -> i64 {
     return fib(n - 1) + fib(n - 2);
 }
 
+fn random_while(n: i64) -> i64 {
+    x: i64 = 0;
+    y: i64 = 0;
+    while x < n {
+        x = x + 1;
+        y = y + x;
+    }
+    return y;
+}
+
+fn fib_while(n: i64) -> i64 {
+    x: i64 = 0;
+    y: i64 = 1;
+    z: i64;
+    i: i64 = 0;
+    while i < n {
+        z = x + y;
+        x = y;
+        y = z;
+        i = i + 1;
+    }
+    return x;
+}
+
 fn main() -> i64 {
-    return fib(6);
+    return fib_while(10);
 }

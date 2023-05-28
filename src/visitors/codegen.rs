@@ -165,8 +165,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::Assign(assign) => self.visit_assign(assign),
             Statement::Block(block) => self.visit_block(block),
             Statement::If(if_) => self.visit_if(if_),
+            Statement::While(while_) => self.visit_while(while_),
             Statement::Print(print) => todo!("codegen print"),
-            Statement::While(while_) => todo!("codegen while"),
         }
     }
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
@@ -211,19 +211,20 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         {
             panic!("variable already declared")
         }
+        let var_ptr = self
+            .builder
+            .build_alloca(var_type, var_name)
+            .as_basic_value_enum();
+        self.stack.insert(var_name, var_ptr.as_basic_value_enum());
 
-        let var_value = match &var_decl.value {
-            Some(var_value) => self
+        if let Some(var_value) = &var_decl.value {
+            let var_value = self
                 .visit_expr(var_value)?
                 .expect("expr must return a value")
-                .as_basic_value_enum(),
-            // todo revise handling of uninitialized variables
-            None => self
-                .builder
-                .build_alloca(var_type, var_name)
-                .as_basic_value_enum(),
+                .as_basic_value_enum();
+            self.builder
+                .build_store(var_ptr.into_pointer_value(), var_value);
         };
-        self.stack.insert(var_name, var_value.as_basic_value_enum());
         Ok(None)
     }
     fn visit_return(&mut self, return_: &Return) -> CodeGenResult<'ctx> {
@@ -236,6 +237,32 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             None => self.builder.build_return(None),
         };
+        Ok(None)
+    }
+    fn visit_while(&mut self, while_: &While) -> CodeGenResult<'ctx> {
+        let while_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "while",
+        );
+        let body_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "body",
+        );
+        let merge_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "merge",
+        );
+        self.builder.build_unconditional_branch(while_block);
+        self.builder.position_at_end(while_block);
+        let comparison = self
+            .visit_expr(&while_.condition)?
+            .expect("expr should return a value");
+        self.builder
+            .build_conditional_branch(comparison.into_int_value(), body_block, merge_block);
+        self.builder.position_at_end(body_block);
+        self.visit_block(&while_.body)?;
+        self.builder.build_unconditional_branch(while_block);
+        self.builder.position_at_end(merge_block);
         Ok(None)
     }
     fn visit_if(&mut self, if_: &If) -> CodeGenResult<'ctx> {
