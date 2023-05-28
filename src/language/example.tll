@@ -101,4 +101,16 @@ fn func_with_params(x: i64, y: i64) -> i64 {
 }
 
 
-fn main() {}
+fn fib(n: i64) -> i64 {
+    if n == 0 {
+        return 0;
+    }
+    if n == 1 {
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+fn main() -> i64 {
+    return fib(6);
+}

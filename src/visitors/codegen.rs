@@ -23,6 +23,7 @@ pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub builder: Builder<'ctx>,
     pub stack: Stack<'input, 'ctx>,
     pub functions: HashMap<&'input str, FunctionValue<'ctx>>,
+    pub current_function: Option<FunctionValue<'ctx>>,
 }
 
 impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
@@ -47,6 +48,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             builder,
             stack,
             functions,
+            current_function: None,
         }
     }
     pub fn compile(&mut self, file: &File) {
@@ -60,9 +62,10 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         println!("{}", self.module.print_to_string().to_string());
 
         unsafe {
-            type Main = unsafe extern "C" fn() -> ();
+            type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
-            jit_function.call();
+            let res = jit_function.call();
+            println!("res: {}", res)
         }
     }
 }
@@ -121,6 +124,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
         let fn_value = self.module.add_function(fn_name, fn_type, None);
 
+        self.current_function = Some(fn_value);
+
         for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
             let param_name = self.lexer.span_str(param.name);
             let param_value = fn_value.get_nth_param(i as u32).unwrap();
@@ -159,8 +164,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
             Statement::Block(block) => self.visit_block(block),
+            Statement::If(if_) => self.visit_if(if_),
             Statement::Print(print) => todo!("codegen print"),
-            Statement::If(if_) => todo!("codegen if"),
             Statement::While(while_) => todo!("codegen while"),
         }
     }
@@ -231,6 +236,37 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             None => self.builder.build_return(None),
         };
+        Ok(None)
+    }
+    fn visit_if(&mut self, if_: &If) -> CodeGenResult<'ctx> {
+        let then_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "then",
+        );
+        let else_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "else",
+        );
+        let comparison = self
+            .visit_expr(&if_.condition)?
+            .expect("expr should return a value");
+        self.builder
+            .build_conditional_branch(comparison.into_int_value(), then_block, else_block);
+        let merge_block = self.context.append_basic_block(
+            self.current_function.expect("current_function must be set"),
+            "merge",
+        );
+        self.builder.position_at_end(then_block);
+        self.visit_block(&if_.then_block)?;
+        if then_block.get_terminator().is_none() {
+            self.builder.build_unconditional_branch(merge_block);
+        }
+        self.builder.position_at_end(else_block);
+        if let Some(ref else_) = if_.else_block {
+            self.visit_block(else_)?;
+        }
+        self.builder.build_unconditional_branch(merge_block);
+        self.builder.position_at_end(merge_block);
         Ok(None)
     }
     fn visit_expr(&mut self, expr: &Expr) -> CodeGenResult<'ctx> {
