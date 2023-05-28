@@ -106,7 +106,6 @@ pub enum Statement {
     While(While),
     VarDecl(VarDecl),
     Assign(Assign),
-    FunctionCall(FunctionCall),
     Print(Print),
     Return(Return),
 }

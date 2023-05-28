@@ -73,7 +73,6 @@ pub trait Visitor<T> {
             Statement::While(while_statement) => self.visit_while(while_statement),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
-            Statement::FunctionCall(function_call) => self.visit_function_call(function_call),
             Statement::Print(print) => self.visit_print(print),
         }
     }
@@ -99,9 +98,7 @@ pub trait Visitor<T> {
     fn visit_assign(&mut self, assign: &Assign) -> T {
         unimplemented!()
     }
-    fn visit_function_call(&mut self, function_call: &FunctionCall) -> T {
-        unimplemented!()
-    }
+
     fn visit_expr(&mut self, expr: &Expr) -> T {
         unimplemented!()
     }
@@ -236,7 +233,6 @@ impl Visitor<()> for SpanPrinter {
             Statement::While(while_) => self.visit_while(while_),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
-            Statement::FunctionCall(function_call) => self.visit_function_call(function_call),
             Statement::Block(block) => self.visit_block(block),
             Statement::Expr(expr) => self.visit_expr(expr),
         }
@@ -283,13 +279,6 @@ impl Visitor<()> for SpanPrinter {
         self.visit_expr(&assign.value);
     }
 
-    fn visit_function_call(&mut self, function_call: &FunctionCall) {
-        let ident = slice(&self.input, &function_call.name);
-        println!("Function call: {}", ident);
-        for arg in &function_call.args {
-            self.visit_expr(arg);
-        }
-    }
     fn visit_expr(&mut self, _expr: &Expr) {}
     fn visit_bin_op(&mut self, _binary_op: &BinOp) {}
     fn visit_un_op(&mut self, _unary_op: &UnOp) {}

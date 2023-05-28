@@ -60,9 +60,16 @@ fn bool_operations() -> bool {
     return t && f || t;
 }
 
+fn function_call() -> bool {
+    let x: i64 = function3();
+    return true;
+}
+
 fn unops() {
     let x: i64 = 4;
-    let y: i64 = -x;
+    let nx: i64 = -x;
+    let y: f64 = 4.0;
+    let ny: f64 = -y;
     let t: bool = true;
     let f: bool = !t;
 }

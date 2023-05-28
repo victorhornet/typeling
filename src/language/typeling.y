@@ -8,6 +8,9 @@
 %left "TIMES" "DIVIDE" "MOD"
 %nonassoc "NOT" 
 
+
+%right "IDENT" "LPAREN"
+
 %%
 file -> ParseResult<File>
     : item_list { Ok(File {items: $1?, span: $span}) }
@@ -135,7 +138,6 @@ stmt -> ParseResult<Statement>
     | print_stmt { Ok(Statement::Print($1?))}
     | var_decl { Ok(Statement::VarDecl($1?))}
     | assign_stmt { Ok(Statement::Assign($1?))}
-    | function_call "SEMICOLON" { Ok(Statement::FunctionCall($1?))}
     ;
 
 if_stmt -> ParseResult<If>
@@ -178,9 +180,6 @@ primitive_type -> ParseResult<Type>
     | "LPAREN" "RPAREN" { Ok(Type::Unit) }
     ;
 
-function_call -> ParseResult<FunctionCall>
-    : "IDENT" "LPAREN" args "RPAREN" { Ok(FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
-    ;
 
 args -> ParseResult<Vec<Expr>>
     : %empty { Ok(vec![]) }
@@ -231,12 +230,13 @@ array_elem_list -> ParseResult<Vec<Expr>>
 
 term -> ParseResult<Expr>
     : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
-    | "LPAREN" expr "RPAREN" { $2 }
+    | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
     | "TRUE" { Ok( Expr::Bool{value: true, span: $span}) }
     | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
+    | "LPAREN" expr "RPAREN" { $2 }
     ;
 
 unary_op -> ParseResult<UnOp>

@@ -6,7 +6,7 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
@@ -409,12 +409,33 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let val = self.builder.build_load(var, var_name);
                 Ok(Some(val))
             }
-            _ => Ok(Some(
-                self.context
-                    .i64_type()
-                    .const_int(69, false)
-                    .as_basic_value_enum(),
-            )),
+            Expr::String { .. } => todo!("string literal expr"),
+            Expr::Struct { .. } => todo!("struct expr"),
+            Expr::Enum { .. } => todo!("enum expr"),
+            Expr::Array { .. } => todo!("array expr"),
+            Expr::FunctionCall { name, args, .. } => {
+                let func_name = self.lexer.span_str(*name);
+
+                let mut args = args
+                    .iter()
+                    .map(|arg| {
+                        BasicMetadataValueEnum::from(
+                            self.visit_expr(arg)
+                                .expect("expression resulted in error") //todo handle resulting error
+                                .expect("expression should return a value"),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                let func = self.functions.get(func_name).expect("function not found");
+                let res = self
+                    .builder
+                    .build_call(*func, args.as_mut_slice(), "call")
+                    .try_as_basic_value()
+                    .left();
+                Ok(res)
+            }
+            Expr::Function { .. } => todo!("anon function expr"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> CodeGenResult<'ctx> {
