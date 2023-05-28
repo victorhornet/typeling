@@ -46,12 +46,20 @@ fn i64_comparisons() {
     x: i64 = 4;
     y: i64 = 5;
     
-    c1 : bool = x == y;
-    c2 : bool = x != y;
-    c3 : bool = x < y;
-    c4 : bool = x > y;
-    c5 : bool = x <= y;
-    c6 : bool = x >= y;
+
+    c1 : bool ;
+    c2 : bool ;
+    c3 : bool ;
+    c4 : bool ;
+    c5 : bool ;
+    c6 : bool ;
+
+    c1 = x == y;
+    c2 = x != y;
+    c3 = x < y;
+    c4 = x > y;
+    c5 = x <= y;
+    c6 = x >= y;
 }
 
 fn bool_operations() -> bool {
@@ -85,6 +93,10 @@ fn blocks() -> i64 {
         x: i64 = 10;
         y: i64 = 11;
     }
+    return x + y;
+}
+
+fn func_with_params(x: i64, y: i64) -> i64 {
     return x + y;
 }
 

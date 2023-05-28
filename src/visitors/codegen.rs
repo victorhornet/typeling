@@ -6,7 +6,7 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
-    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
@@ -40,14 +40,14 @@ impl<'input, 'ctx> Stack<'input, 'ctx> {
     pub fn pop(&mut self) {
         self.frames.pop();
     }
-    pub fn insert(&mut self, name: &'input str, value: PointerValue<'ctx>) {
+    pub fn insert(&mut self, name: &'input str, value: BasicValueEnum<'ctx>) {
         self.frames
             .last_mut()
             .expect("stack must have at least one frame")
             .variables
             .insert(name, value);
     }
-    pub fn get(&self, name: &'input str) -> Option<PointerValue<'ctx>> {
+    pub fn get(&self, name: &'input str) -> Option<BasicValueEnum<'ctx>> {
         for frame in self.frames.iter().rev() {
             if let Some(value) = frame.variables.get(name) {
                 return Some(*value);
@@ -59,7 +59,7 @@ impl<'input, 'ctx> Stack<'input, 'ctx> {
 
 #[derive(Default)]
 struct StackFrame<'input, 'ctx> {
-    pub variables: HashMap<&'input str, PointerValue<'ctx>>,
+    pub variables: HashMap<&'input str, BasicValueEnum<'ctx>>,
 }
 impl<'input, 'ctx> StackFrame<'input, 'ctx> {
     pub fn new() -> Self {
@@ -140,13 +140,56 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         if self.functions.contains_key(fn_name) {
             panic!("function {} already exists", fn_name)
         }
-        let fn_type = self.context.i64_type().fn_type(&[], false);
+        self.stack.push();
+        let params: Vec<BasicMetadataTypeEnum> = function_decl
+            .function_sig
+            .proto
+            .params
+            .iter()
+            .map(|param| {
+                let param_name = self.lexer.span_str(param.name);
+                let param_type: BasicMetadataTypeEnum = match param.param_type {
+                    Type::Unit => panic!("cant have unit type argument"), //todo return error
+                    Type::Int => BasicMetadataTypeEnum::IntType(self.context.i64_type()),
+                    Type::Float => BasicMetadataTypeEnum::FloatType(self.context.f64_type()),
+                    Type::Bool => BasicMetadataTypeEnum::IntType(self.context.bool_type()),
+                    Type::String => todo!("string type"),
+                    Type::Array(_) => todo!("array type"),
+                    Type::Function(_) => todo!("function type"),
+                    Type::Ident(_) => todo!("user defined type"),
+                };
+                param_type
+            })
+            .collect();
+
+        let fn_type = match function_decl.function_sig.proto.return_type {
+            Type::Unit => self.context.void_type().fn_type(&params, false),
+            Type::Int => self.context.i64_type().fn_type(&params, false),
+            Type::Float => self.context.f64_type().fn_type(&params, false),
+            Type::Bool => self.context.bool_type().fn_type(&params, false),
+            Type::String => todo!("string type"),
+            Type::Array(_) => todo!("array type"),
+            Type::Function(_) => todo!("function type"),
+            Type::Ident(_) => todo!("user defined type"),
+        };
+
         let fn_value = self.module.add_function(fn_name, fn_type, None);
+
+        for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
+            let param_name = self.lexer.span_str(param.name);
+            let param_value = fn_value.get_nth_param(i as u32).unwrap();
+            param_value.set_name(param_name);
+            self.stack.insert(param_name, param_value);
+        }
+
         self.functions.insert(fn_name, fn_value);
-        let basic_block = self.context.append_basic_block(fn_value, "entry");
-        self.builder.position_at_end(basic_block);
-        self.visit_block(&function_decl.body)?;
-        if basic_block.get_terminator().is_none() {
+
+        let entry_basic_block = self.context.append_basic_block(fn_value, "entry");
+        self.builder.position_at_end(entry_basic_block);
+
+        self.walk_block(&function_decl.body);
+
+        if entry_basic_block.get_terminator().is_none() {
             if let Type::Unit = function_decl.function_sig.proto.return_type {
                 self.builder.build_return(None);
             } else {
@@ -154,6 +197,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 panic!("function must return a value");
             }
         };
+        self.stack.pop();
         Ok(None)
     }
     fn visit_block(&mut self, block: &Block) -> CodeGenResult<'ctx> {
@@ -174,21 +218,24 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::While(while_) => todo!("codegen while"),
         }
     }
-
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(assign.name);
-        let var_ptr = self
+        let var = self
             .stack
             .get(var_name)
             .unwrap_or_else(|| panic!("variable {var_name} not found"));
         let var_value = self
             .visit_expr(&assign.value)?
             .expect("expr must return a value");
-        self.builder.build_store(var_ptr, var_value);
 
+        if var.is_pointer_value() {
+            self.builder
+                .build_store(var.into_pointer_value(), var_value);
+        } else {
+            self.stack.insert(var_name, var_value);
+        }
         Ok(None)
     }
-
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
         // todo: add type inferenece
@@ -214,24 +261,20 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             panic!("variable already declared")
         }
 
-        let var = self.builder.build_alloca(var_type, var_name);
-        self.stack.insert(var_name, var);
-
         let var_value = match &var_decl.value {
-            Some(var_value) => Some(
-                self.visit_expr(var_value)?
-                    .expect("expr must return a value")
-                    .as_basic_value_enum(),
-            ),
-            None => None,
+            Some(var_value) => self
+                .visit_expr(var_value)?
+                .expect("expr must return a value")
+                .as_basic_value_enum(),
+            // todo revise handling of uninitialized variables
+            None => self
+                .builder
+                .build_alloca(var_type, var_name)
+                .as_basic_value_enum(),
         };
-        if let Some(val) = var_value {
-            self.builder.build_store(var, val);
-        }
-
+        self.stack.insert(var_name, var_value.as_basic_value_enum());
         Ok(None)
     }
-
     fn visit_return(&mut self, return_: &Return) -> CodeGenResult<'ctx> {
         match return_.value {
             Some(ref value) => {
@@ -409,7 +452,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Expr::Var { name, .. } => {
                 let var_name = self.lexer.span_str(*name);
                 let var = self.stack.get(var_name).expect("variable not found");
-                let val = self.builder.build_load(var, var_name);
+                let val = if var.is_pointer_value() {
+                    self.builder.build_load(var.into_pointer_value(), var_name)
+                } else {
+                    var
+                };
                 Ok(Some(val))
             }
             Expr::String { .. } => todo!("string literal expr"),
