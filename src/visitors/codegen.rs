@@ -168,7 +168,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::Expr(expr) => self.visit_expr(expr),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
-            _ => Ok(None),
+            Statement::Block(block) => self.visit_block(block),
+            Statement::Print(print) => todo!("codegen print"),
+            Statement::If(if_) => todo!("codegen if"),
+            Statement::While(while_) => todo!("codegen while"),
         }
     }
 
@@ -177,7 +180,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let var_ptr = self
             .stack
             .get(var_name)
-            .expect(format!("variable {var_name} not found").as_str());
+            .unwrap_or_else(|| panic!("variable {var_name} not found"));
         let var_value = self
             .visit_expr(&assign.value)?
             .expect("expr must return a value");

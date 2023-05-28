@@ -247,7 +247,6 @@ unary_op -> ParseResult<UnOp>
 %%
 
 use crate::ast::*;
-use cfgrammar::Span;
 
 fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<T>>
 {

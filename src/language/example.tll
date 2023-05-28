@@ -74,6 +74,19 @@ fn unops() {
     f: bool = !t;
 }
 
-fn main() {
-    print(0);
+fn blocks() -> i64 {
+    x: i64 = 4;
+    y: i64 = 5;
+    {
+        x = 5;
+        y = 6;
+    }
+    {
+        x: i64 = 10;
+        y: i64 = 11;
+    }
+    return x + y;
 }
+
+
+fn main() {}
