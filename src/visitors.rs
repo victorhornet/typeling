@@ -18,7 +18,11 @@ pub trait Visitor<T> {
         res
     }
     fn visit_item(&mut self, item: &Item) -> T {
-        unimplemented!()
+        match item {
+            Item::FunctionDecl(function_decl) => self.visit_function_decl(function_decl),
+            Item::TypeDecl(type_decl) => self.visit_type_decl(type_decl),
+            Item::AliasDecl(alias_decl) => self.visit_alias_decl(alias_decl),
+        }
     }
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> T {
         unimplemented!()
@@ -87,10 +91,16 @@ pub trait Visitor<T> {
         }
     }
     fn visit_if(&mut self, if_: &If) -> T {
-        unimplemented!()
+        let res = self.visit_expr(&if_.condition);
+        self.visit_block(&if_.then_block);
+        if let Some(ref else_block) = if_.else_block {
+            self.visit_block(else_block);
+        };
+        res
     }
     fn visit_while(&mut self, while_: &While) -> T {
-        unimplemented!()
+        self.visit_expr(&while_.condition);
+        self.visit_block(&while_.body)
     }
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> T {
         unimplemented!()
@@ -267,7 +277,9 @@ impl Visitor<()> for SpanPrinter {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {
         let ident = slice(&self.input, &var_decl.name);
         println!("Var decl: {}", ident);
-        self.visit_type(&var_decl.var_type);
+        if let Some(var_type) = &var_decl.var_type {
+            self.visit_type(var_type);
+        }
         if let Some(value) = &var_decl.value {
             self.visit_expr(value);
         }

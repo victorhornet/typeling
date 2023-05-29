@@ -47,6 +47,7 @@ pub struct Param {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
+    // todo: inferred
     Unit,
     Int,
     Float,
@@ -140,7 +141,7 @@ pub struct While {
 #[derive(Debug)]
 pub struct VarDecl {
     pub name: Span,
-    pub var_type: Type,
+    pub var_type: Option<Type>,
     pub value: Option<Expr>,
     pub span: Span,
 }

@@ -153,6 +153,15 @@ fn returns_struct() -> StructType {
     return 1;
 }
 
+/*
+fn type_inference() {
+    x : = 1; // i64
+    y : = 1.0; // f64
+    z : = true; // bool
+    w : = "hello"; // string
+}
+*/
+
 fn main() -> i64 {
     return fib_while(50);
 }

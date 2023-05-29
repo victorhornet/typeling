@@ -257,14 +257,15 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let var_name = self.lexer.span_str(var_decl.name);
         // todo: add type inferenece
         let var_type = match &var_decl.var_type {
-            Type::Unit => panic!("cannot declare a variable of type unit"),
-            Type::Int => BasicTypeEnum::IntType(self.context.i64_type()),
-            Type::Float => BasicTypeEnum::FloatType(self.context.f64_type()),
-            Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
-            Type::String => todo!("string type"),
-            Type::Ident(_) => todo!("custom type"),
-            Type::Array(_) => todo!("array type"),
-            Type::Function(_) => todo!("function type"),
+            Some(Type::Unit) => panic!("cannot declare a variable of type unit"),
+            Some(Type::Int) => BasicTypeEnum::IntType(self.context.i64_type()),
+            Some(Type::Float) => BasicTypeEnum::FloatType(self.context.f64_type()),
+            Some(Type::Bool) => BasicTypeEnum::IntType(self.context.bool_type()),
+            Some(Type::String) => todo!("string type"),
+            Some(Type::Ident(_)) => todo!("custom type"),
+            Some(Type::Array(_)) => todo!("array type"),
+            Some(Type::Function(_)) => todo!("function type"),
+            None => todo!("type inference"),
         };
 
         if self
