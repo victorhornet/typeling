@@ -132,11 +132,23 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 }
                 Item::TypeDecl(type_decl) => {
                     let type_name = self.lexer.span_str(type_decl.name);
-                    self.context
-                        .opaque_struct_type(type_name)
-                        .as_basic_type_enum();
+                    match type_decl.def {
+                        TypeDef::Unit => todo!("unit type"),
+                        TypeDef::Tuple(_) => todo!("tuple type"),
+                        TypeDef::Struct(_) => {
+                            self.context
+                                .opaque_struct_type(type_name)
+                                .as_basic_type_enum();
+                        }
+                        TypeDef::Enum(_) => todo!("enum type"),
+                    }
                 }
-                _ => {}
+                Item::AliasDecl(alias_decl) => {
+                    let alias_name = self.lexer.span_str(alias_decl.name);
+                    let alias_type = self.get_basic_type(&alias_decl.original);
+                    // self.context.add_type_alias(alias_type, alias_name);
+                    todo!("alias type")
+                }
             }
         }
     }

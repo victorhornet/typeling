@@ -130,9 +130,9 @@ fn random_while(n: i64) -> i64 {
 fn fib_while(n: i64) -> i64 {
     x: i64 = 0;
     y: i64 = 1;
-    z: i64;
     i: i64 = 0;
     while i < n {
+        z: i64;
         z = x + y;
         x = y;
         y = z;
@@ -154,5 +154,5 @@ fn returns_struct() -> StructType {
 }
 
 fn main() -> i64 {
-    return fn_def_test1();
+    return fib_while(50);
 }
