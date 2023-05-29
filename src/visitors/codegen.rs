@@ -61,8 +61,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
-        println!("{}", self.module.print_to_string().to_string());
-
         unsafe {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
