@@ -65,7 +65,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             let res = jit_function.call();
-            println!("res: {}", res)
+            println!("Returned from main: {}", res)
         }
     }
 
