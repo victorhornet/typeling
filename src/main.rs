@@ -26,6 +26,9 @@ struct Args {
     #[arg(short, long, default_value = "false")]
     no_codegen: bool,
 
+    #[arg(short, long, default_value = "false")]
+    show_ir: bool,
+
     output: Option<String>,
 }
 
@@ -82,6 +85,10 @@ fn main() {
                 let context = Context::create();
                 let mut codegen = CodeGen::new(&lexer, &context);
                 codegen.compile(&file);
+                if args.show_ir {
+                    // codegen.module.print_to_stderr();
+                    println!("{}", codegen.module.print_to_string().to_string());
+                }
             }
         }
         None => eprintln!("Parse failed"),
