@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, mem::replace};
 
 use inkwell::{
     builder::Builder,
@@ -255,6 +255,16 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
+        if self
+            .stack
+            .frames
+            .last()
+            .unwrap()
+            .variables
+            .contains_key(var_name)
+        {
+            panic!("variable already declared")
+        }
         // todo: add type inferenece
         let var_type = match &var_decl.var_type {
             Type::Unit => panic!("cannot declare a variable of type unit"),
@@ -266,17 +276,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
         };
-
-        if self
-            .stack
-            .frames
-            .last()
-            .unwrap()
-            .variables
-            .contains_key(var_name)
-        {
-            panic!("variable already declared")
-        }
         let var_ptr = self
             .builder
             .build_alloca(var_type, var_name)
@@ -534,7 +533,23 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 };
                 Ok(Some(val))
             }
-            Expr::String { .. } => todo!("string literal expr"),
+            Expr::String { value, span } => {
+                let val = &mut value[1..value.len() - 1]
+                    .replace("\\\\", "\\")
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\r", "\r")
+                    .replace("\\\"", "\"")
+                    .replace("\\\'", "\'");
+                val.push('\0');
+                let res = self
+                    .context
+                    .const_string(val.as_bytes(), false)
+                    .as_basic_value_enum();
+                let ptr = self.builder.build_alloca(res.get_type(), "string");
+                self.builder.build_store(ptr, res);
+                Ok(Some(ptr.as_basic_value_enum()))
+            }
             Expr::Struct { .. } => todo!("struct expr"),
             Expr::Enum { .. } => todo!("enum expr"),
             Expr::Array { .. } => todo!("array expr"),

@@ -153,6 +153,14 @@ fn returns_struct() -> StructType {
     return 1;
 }
 
+
+fn hello() {
+    printf("Hello \"world\" \'!\'\n num: %d\n", 1);
+    printf("\tthis is a tabbed string\n");
+}
+
+
 fn main() -> i64 {
+    hello();
     return fib_while(50);
 }
