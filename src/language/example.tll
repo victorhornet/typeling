@@ -162,6 +162,17 @@ fn type_inference() {
 }
 */
 
+
+fn hello() {
+    printf("Hello \"world\" \'!\'\n num: %d\n", 1);
+    printf("\tthis is a tabbed string\n");
+}
+
+
 fn main() -> i64 {
-    return fib_while(50);
+    hello(); 
+    x : i64 = fib_while(50); 
+    check: bool = x == 12586269025;
+    printf("fib(50) = %llu (%d)\n", x, check); 
+    return 0;
 }

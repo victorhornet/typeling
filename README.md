@@ -4,30 +4,41 @@ Typeling is a simple programming language written for one of my Bachelor graduat
 
 ## Features
 
-### comments
+### Primitive data types
 
-```typeling
+#### integers (i64)
+#### floats (f64)
+#### booleans
+#### strings
+
+
+### Comments
+
+```rust
 // Single line comment
 
 /*
-Multi line comments
+    This is a 
+    multi-line 
+    comment
 */
 
 ```
 
-### variables
+### Variables
 
-```rust
-let x : type = value;
-```
+Variables are statically typed.
 
-```rust
-let x = 1;
+```python
+x : i64 = 5; // type specified
+y := 2;      // type inference 
+
+x = 2;
 ```
 
 ### loops
 
-```rust
+```typeling
 while condition {
 	//body
 }
@@ -36,7 +47,7 @@ while condition {
 
 ### conditionals
 
-```rust
+```typeling
 if cond {
     //body
 } else {
@@ -46,14 +57,18 @@ if cond {
 
 ### functions
 
-```rust
+```typeling
 fn function() {
-    let x: something;
-    let y: something_else;
-    let z: i32 = 0;
+    x: bool;
+    y: f64;
+    z: 64 = 0;
 
     z = 5 + 5;
-} 
+}
+
+fn another_function() -> i32 {
+    return 10;
+}
 
 fn main() {
     function();

@@ -11,7 +11,7 @@ let "LET"
 
 [-+]?[0-9]+ "INT_LIT"
 [-+]?[0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*)) "FLOAT_LIT"
-\"[^\"]*\" "STRING_LIT"
+\"([^\\\"]|\\[\'\"ntr])*\" "STRING_LIT"
 true "TRUE"
 false "FALSE"
 
