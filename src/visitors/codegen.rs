@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, mem::replace};
+use std::{collections::HashMap, error::Error};
 
 use inkwell::{
     builder::Builder,
@@ -61,11 +61,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
+        // self.module
+        //     .verify()
+        //     .expect("llvm found type checking errors");
         unsafe {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
-            let res = jit_function.call();
-            println!("Returned from main: {}", res)
+            let _res = jit_function.call();
+            // println!("Returned from main: {}", res)
         }
     }
 
@@ -95,7 +98,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                 Type::Bool => {
                                     BasicMetadataTypeEnum::IntType(self.context.bool_type())
                                 }
-                                Type::String => todo!("string type"),
+                                Type::String(_) => todo!("string type"),
                                 Type::Array(_) => todo!("array type"),
                                 Type::Function(_) => todo!("function type"),
                                 Type::Ident(span) => {
@@ -115,7 +118,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         Type::Int => self.context.i64_type().fn_type(&params, false),
                         Type::Float => self.context.f64_type().fn_type(&params, false),
                         Type::Bool => self.context.bool_type().fn_type(&params, false),
-                        Type::String => todo!("string type"),
+                        Type::String(_) => todo!("string type"),
                         Type::Array(_) => todo!("array type"),
                         Type::Function(_) => todo!("function type"),
                         Type::Ident(span) => {
@@ -143,8 +146,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     }
                 }
                 Item::AliasDecl(alias_decl) => {
-                    let alias_name = self.lexer.span_str(alias_decl.name);
-                    let alias_type = self.get_basic_type(&alias_decl.original);
+                    let _alias_name = self.lexer.span_str(alias_decl.name);
+                    let _alias_type = self.get_basic_type(&alias_decl.original);
                     // self.context.add_type_alias(alias_type, alias_name);
                     todo!("alias type")
                 }
@@ -159,7 +162,11 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             Type::Int => self.context.i64_type().as_basic_type_enum(),
             Type::Float => self.context.f64_type().as_basic_type_enum(),
             Type::Bool => self.context.bool_type().as_basic_type_enum(),
-            Type::String => todo!("string type"),
+            Type::String(size) => self
+                .context
+                .i8_type()
+                .array_type(*size as u32)
+                .as_basic_type_enum(),
             Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
             Type::Ident(span) => {
@@ -270,7 +277,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Type::Int => BasicTypeEnum::IntType(self.context.i64_type()),
             Type::Float => BasicTypeEnum::FloatType(self.context.f64_type()),
             Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
-            Type::String => todo!("string type"),
+            Type::String(_) => todo!("string type"),
             Type::Ident(_) => todo!("custom type"),
             Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
@@ -540,12 +547,18 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .replace("\\r", "\r")
                     .replace("\\\"", "\"")
                     .replace("\\\'", "\'");
-                let res = self
-                    .context
-                    .const_string(val.as_bytes(), true)
-                    .as_basic_value_enum();
-                let ptr = self.builder.build_alloca(res.get_type(), "string");
-                self.builder.build_store(ptr, res);
+                let res;
+                unsafe {
+                    res = self
+                        .builder
+                        .build_global_string(val, "string")
+                        .as_pointer_value();
+                }
+                let ptr = self.builder.build_pointer_cast(
+                    res,
+                    self.context.i8_type().ptr_type(AddressSpace::default()),
+                    "string",
+                );
                 Ok(Some(ptr.as_basic_value_enum()))
             }
             Expr::Struct { .. } => todo!("struct expr"),

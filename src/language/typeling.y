@@ -175,7 +175,7 @@ type -> ParseResult<Type>
 primitive_type -> ParseResult<Type>
     : "INT" { Ok(Type::Int) } 
     | "FLOAT" { Ok(Type::Float) }
-    | "STRING" { Ok(Type::String) }
+    | "STRING" { Ok(Type::String($1?.span().len() - 2)) }
     | "BOOL" { Ok(Type::Bool) }
     | "LPAREN" "RPAREN" { Ok(Type::Unit) }
     ;

@@ -45,7 +45,7 @@ fn function2() -> i64 {
 fn function3() -> f64 {
     t : bool = true;
     f : bool = false;
-    return 10 - 3;
+    return 10.0;
 }
 
 fn i64_comparisons() {
@@ -75,7 +75,7 @@ fn bool_operations() -> bool {
 }
 
 fn function_call() -> bool {
-    x: i64 = function3();
+    x: i64 = function2();
     return true;
 }
 
@@ -132,8 +132,7 @@ fn fib_while(n: i64) -> i64 {
     y: i64 = 1;
     i: i64 = 0;
     while i < n {
-        z: i64;
-        z = x + y;
+        z: i64 = x + y;
         x = y;
         y = z;
         i = i + 1;
@@ -148,11 +147,6 @@ fn fn_def_test1() -> i64 {
 fn fn_def_test2() -> i64 {
     return 10;
 }
-
-fn returns_struct() -> StructType {
-    return 1;
-}
-
 
 fn hello() {
     printf("Hello \"world\" \'!\'\n num: %d\n", 1);

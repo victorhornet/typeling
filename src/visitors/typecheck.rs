@@ -47,7 +47,7 @@ impl Visitor<TCResult> for TypeChecker {
         match expr {
             Expr::Int { .. } => Ok(Some(Type::Int)),
             Expr::Float { .. } => Ok(Some(Type::Float)),
-            Expr::String { .. } => Ok(Some(Type::String)),
+            Expr::String { value, .. } => Ok(Some(Type::String(value.len() - 2))),
             Expr::Bool { .. } => Ok(Some(Type::Bool)),
             Expr::Var { name, .. } => self
                 .vars
@@ -82,7 +82,7 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
     match binop {
         BinOp::Add(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
-            (Type::String, Type::String) => Ok(Type::String),
+            (Type::String(s1), Type::String(s2)) => Ok(Type::String(s1 + s2)),
             (Type::Float, Type::Float) => Ok(Type::Float),
             _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
@@ -116,14 +116,14 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
         BinOp::Eq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            (Type::String, Type::String) => Ok(Type::Bool),
+            (Type::String(_), Type::String(_)) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
             _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
         BinOp::Neq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            (Type::String, Type::String) => Ok(Type::Bool),
+            (Type::String(_), Type::String(_)) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
             _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
         },
