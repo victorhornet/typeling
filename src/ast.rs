@@ -52,7 +52,7 @@ pub enum Type {
     Int,
     Float,
     Bool,
-    String,
+    String(usize),
     Ident(Span),
     Array(Box<Type>),
     Function(Box<FunctionSig>),

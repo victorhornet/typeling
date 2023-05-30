@@ -45,7 +45,7 @@ fn function2() -> i64 {
 fn function3() -> f64 {
     t : bool = true;
     f : bool = false;
-    return 10 - 3;
+    return 10.0 - 3.0;
 }
 
 fn i64_comparisons() {
@@ -153,15 +153,12 @@ fn returns_struct() -> StructType {
     return 1;
 }
 
-/*
 fn type_inference() {
     x : = 1; // i64
     y : = 1.0; // f64
     z : = true; // bool
     w : = "hello"; // string
 }
-*/
-
 
 fn hello() {
     printf("Hello \"world\" \'!\'\n num: %d\n", 1);
@@ -171,7 +168,7 @@ fn hello() {
 
 fn main() -> i64 {
     hello(); 
-    x : i64 = fib_while(50); 
+    x : i64 = fib_while(50);
     check: bool = x == 12586269025;
     printf("fib(50) = %llu (%d)\n", x, check); 
     return 0;

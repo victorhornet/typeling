@@ -1,4 +1,6 @@
-use std::{collections::HashMap, error::Error, mem::replace};
+use std::{collections::HashMap, error::Error};
+
+// globals definer -> type checker -> code generation
 
 use inkwell::{
     builder::Builder,
@@ -12,7 +14,7 @@ use inkwell::{
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::ast::*;
+use crate::{ast::*, compiler::Stack};
 
 use super::Visitor;
 
@@ -21,7 +23,7 @@ pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
-    pub stack: Stack<'input, 'ctx>,
+    pub stack: Stack<'input, BasicValueEnum<'ctx>>,
     pub functions: HashMap<&'input str, FunctionValue<'ctx>>,
     pub current_function: Option<FunctionValue<'ctx>>,
 }
@@ -95,7 +97,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                 Type::Bool => {
                                     BasicMetadataTypeEnum::IntType(self.context.bool_type())
                                 }
-                                Type::String => todo!("string type"),
+                                Type::String(_) => todo!("string type"),
                                 Type::Array(_) => todo!("array type"),
                                 Type::Function(_) => todo!("function type"),
                                 Type::Ident(span) => {
@@ -115,7 +117,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         Type::Int => self.context.i64_type().fn_type(&params, false),
                         Type::Float => self.context.f64_type().fn_type(&params, false),
                         Type::Bool => self.context.bool_type().fn_type(&params, false),
-                        Type::String => todo!("string type"),
+                        Type::String(_) => todo!("string type"),
                         Type::Array(_) => todo!("array type"),
                         Type::Function(_) => todo!("function type"),
                         Type::Ident(span) => {
@@ -159,7 +161,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             Type::Int => self.context.i64_type().as_basic_type_enum(),
             Type::Float => self.context.f64_type().as_basic_type_enum(),
             Type::Bool => self.context.bool_type().as_basic_type_enum(),
-            Type::String => todo!("string type"),
+            Type::String(_) => todo!("string type"),
             Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
             Type::Ident(span) => {
@@ -270,7 +272,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(Type::Int) => BasicTypeEnum::IntType(self.context.i64_type()),
             Some(Type::Float) => BasicTypeEnum::FloatType(self.context.f64_type()),
             Some(Type::Bool) => BasicTypeEnum::IntType(self.context.bool_type()),
-            Some(Type::String) => todo!("string type"),
+            Some(Type::String(_)) => todo!("string type"),
             Some(Type::Ident(_)) => todo!("custom type"),
             Some(Type::Array(_)) => todo!("array type"),
             Some(Type::Function(_)) => todo!("function type"),
@@ -606,47 +608,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_print(&mut self, print: &Print) -> CodeGenResult<'ctx> {
         todo!("print");
-    }
-}
-
-#[derive(Default)]
-pub struct Stack<'input, 'ctx> {
-    frames: Vec<StackFrame<'input, 'ctx>>,
-}
-impl<'input, 'ctx> Stack<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn push(&mut self) {
-        self.frames.push(StackFrame::new());
-    }
-    pub fn pop(&mut self) {
-        self.frames.pop();
-    }
-    pub fn insert(&mut self, name: &'input str, value: BasicValueEnum<'ctx>) {
-        self.frames
-            .last_mut()
-            .expect("stack must have at least one frame")
-            .variables
-            .insert(name, value);
-    }
-    pub fn get(&self, name: &'input str) -> Option<BasicValueEnum<'ctx>> {
-        for frame in self.frames.iter().rev() {
-            if let Some(value) = frame.variables.get(name) {
-                return Some(*value);
-            }
-        }
-        None
-    }
-}
-
-#[derive(Default)]
-struct StackFrame<'input, 'ctx> {
-    pub variables: HashMap<&'input str, BasicValueEnum<'ctx>>,
-}
-impl<'input, 'ctx> StackFrame<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
     }
 }
 

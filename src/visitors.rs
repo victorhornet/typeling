@@ -171,7 +171,7 @@ impl Visitor<()> for SpanPrinter {
             Type::Int => println!("Type: int"),
             Type::Float => println!("Type: float"),
             Type::Bool => println!("Type: bool"),
-            Type::String => println!("Type: string"),
+            Type::String(_) => println!("Type: string"),
             Type::Array(element_type) => {
                 println!("Type: array");
                 self.visit_type(element_type);
