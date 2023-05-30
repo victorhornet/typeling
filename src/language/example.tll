@@ -161,6 +161,9 @@ fn hello() {
 
 
 fn main() -> i64 {
-    hello();
-    return fib_while(50);
+    hello(); 
+    x : i64 = fib_while(50); 
+    check: bool = x == 12586269025;
+    printf("fib(50) = %llu (%d)\n", x, check); 
+    return 0;
 }

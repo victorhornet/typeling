@@ -126,7 +126,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                 .fn_type(&params, false)
                         }
                     };
-
                     let fn_value = self.module.add_function(fn_name, fn_type, None);
                     self.functions.insert(fn_name, fn_value);
                 }
@@ -533,18 +532,17 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 };
                 Ok(Some(val))
             }
-            Expr::String { value, span } => {
-                let val = &mut value[1..value.len() - 1]
+            Expr::String { value, .. } => {
+                let val = &value[1..value.len() - 1]
                     .replace("\\\\", "\\")
                     .replace("\\n", "\n")
                     .replace("\\t", "\t")
                     .replace("\\r", "\r")
                     .replace("\\\"", "\"")
                     .replace("\\\'", "\'");
-                val.push('\0');
                 let res = self
                     .context
-                    .const_string(val.as_bytes(), false)
+                    .const_string(val.as_bytes(), true)
                     .as_basic_value_enum();
                 let ptr = self.builder.build_alloca(res.get_type(), "string");
                 self.builder.build_store(ptr, res);
@@ -606,15 +604,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         Ok(None)
     }
     fn visit_print(&mut self, print: &Print) -> CodeGenResult<'ctx> {
-        // let _val = self
-        //     .visit_expr(&print.value)?
-        //     .expect("expressions must return a value");
-        // let val = self.context.i8_type().const_int(69, false);
-        // let ptr = self.printf.get_first_param().unwrap().into_pointer_value();
-        // self.builder.build_store(ptr, val);
-        // self.builder
-        //     .build_call(self.printf, &[ptr.into()], "printf");
-        Ok(None)
+        todo!("print");
     }
 }
 
