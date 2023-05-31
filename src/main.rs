@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod types;
 pub mod visitors;
 
 use clap::Parser;

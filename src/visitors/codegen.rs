@@ -61,9 +61,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
-        // self.module
-        //     .verify()
-        //     .expect("llvm found type checking errors");
+        self.module.verify().unwrap();
+
         unsafe {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
@@ -135,15 +134,9 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 Item::TypeDecl(type_decl) => {
                     let type_name = self.lexer.span_str(type_decl.name);
                     match type_decl.def {
-                        TypeDef::Unit => todo!("unit type"),
-                        TypeDef::Tuple(_) => todo!("tuple type"),
-                        TypeDef::Struct(_) => {
-                            self.context
-                                .opaque_struct_type(type_name)
-                                .as_basic_type_enum();
-                        }
                         TypeDef::Enum(_) => todo!("enum type"),
-                    }
+                        _ => self.context.opaque_struct_type(type_name),
+                    };
                 }
                 Item::AliasDecl(alias_decl) => {
                     let _alias_name = self.lexer.span_str(alias_decl.name);
@@ -605,7 +598,17 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     let field_type = self.get_basic_type(&field.ty);
                     field_types.push(field_type);
                 }
-                struct_type.set_body(&field_types, false); //todo what is packed?
+                struct_type.set_body(&field_types, false);
+            }
+            TypeDef::Tuple(ref fields) => {
+                let tuple_name = self.lexer.span_str(type_decl.name);
+                let tuple_type = type_type.into_struct_type();
+                let mut field_types: Vec<BasicTypeEnum> = Vec::new();
+                for field in fields {
+                    let field_type = self.get_basic_type(field);
+                    field_types.push(field_type);
+                }
+                tuple_type.set_body(&field_types, false);
             }
             _ => {
                 todo!("other type defs")

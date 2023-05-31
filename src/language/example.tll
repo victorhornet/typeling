@@ -8,9 +8,10 @@
 
 /*
 type Test1;
-alias Test10 = Test1;
-type Test2 (i64, i64);
+
 */
+
+type TupleType (i64, i64);
 
 type StructType {
     x: i64,
@@ -153,6 +154,13 @@ fn hello() {
     printf("\tthis is a tabbed string\n");
 }
 
+/*
+
+fn pattern_match() {
+    
+}
+
+*/
 
 fn main() -> i64 {
     hello(); 
