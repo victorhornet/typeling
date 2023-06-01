@@ -12,7 +12,7 @@ use inkwell::{
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::ast::*;
+use crate::{ast::*, types::GADT};
 
 use super::Visitor;
 
@@ -86,7 +86,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         .params
                         .iter()
                         .map(|param| {
-                            let param_type: BasicMetadataTypeEnum = match param.param_type {
+                            let param_type: BasicMetadataTypeEnum = match &param.param_type {
                                 Type::Unit => panic!("cant have unit type argument"), //todo return error
                                 Type::Int => {
                                     BasicMetadataTypeEnum::IntType(self.context.i64_type())
@@ -98,45 +98,38 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                     BasicMetadataTypeEnum::IntType(self.context.bool_type())
                                 }
                                 Type::String(_) => todo!("string type"),
-                                Type::Array(_) => todo!("array type"),
                                 Type::Function(_) => todo!("function type"),
-                                Type::Ident(span) => {
-                                    let name = self.lexer.span_str(span);
-                                    self.context
-                                        .get_struct_type(name)
-                                        .unwrap_or_else(|| panic!("type {} not found", name))
-                                        .into()
-                                }
+                                Type::Ident(name) => self
+                                    .context
+                                    .get_struct_type(name.as_str())
+                                    .unwrap_or_else(|| panic!("type {} not found", name))
+                                    .into(),
+                                _ => unimplemented!(),
                             };
                             param_type
                         })
                         .collect();
 
-                    let fn_type = match function_decl.function_sig.proto.return_type {
+                    let fn_type = match &function_decl.function_sig.proto.return_type {
                         Type::Unit => self.context.void_type().fn_type(&params, false),
                         Type::Int => self.context.i64_type().fn_type(&params, false),
                         Type::Float => self.context.f64_type().fn_type(&params, false),
                         Type::Bool => self.context.bool_type().fn_type(&params, false),
                         Type::String(_) => todo!("string type"),
-                        Type::Array(_) => todo!("array type"),
                         Type::Function(_) => todo!("function type"),
-                        Type::Ident(span) => {
-                            let name = self.lexer.span_str(span);
-                            self.context
-                                .get_struct_type(name)
-                                .unwrap_or_else(|| panic!("type {} not found", name))
-                                .fn_type(&params, false)
-                        }
+                        Type::Ident(name) => self
+                            .context
+                            .get_struct_type(name.as_str())
+                            .unwrap_or_else(|| panic!("type {} not found", name))
+                            .fn_type(&params, false),
+                        _ => unimplemented!(),
                     };
                     let fn_value = self.module.add_function(fn_name, fn_type, None);
                     self.functions.insert(fn_name, fn_value);
                 }
                 Item::TypeDecl(type_decl) => {
-                    let type_name = self.lexer.span_str(type_decl.name);
-                    match type_decl.def {
-                        TypeDef::Enum(_) => todo!("enum type"),
-                        _ => self.context.opaque_struct_type(type_name),
-                    };
+                    let _type_name = &type_decl.name;
+                    todo!("type decl");
                 }
                 Item::AliasDecl(alias_decl) => {
                     let _alias_name = self.lexer.span_str(alias_decl.name);
@@ -160,15 +153,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .i8_type()
                 .array_type(*size as u32)
                 .as_basic_type_enum(),
-            Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
-            Type::Ident(span) => {
-                let name = self.lexer.span_str(*span);
-                self.context
-                    .get_struct_type(name)
-                    .unwrap_or_else(|| panic!("type {} not found", name))
-                    .as_basic_type_enum()
-            }
+            Type::Ident(name) => self
+                .context
+                .get_struct_type(name)
+                .unwrap_or_else(|| panic!("type {} not found", name))
+                .as_basic_type_enum(),
+            _ => unimplemented!(),
         }
     }
 }
@@ -272,8 +263,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
             Type::String(_) => todo!("string type"),
             Type::Ident(_) => todo!("custom type"),
-            Type::Array(_) => todo!("array type"),
             Type::Function(_) => todo!("function type"),
+            _ => unimplemented!(),
         };
         let var_ptr = self
             .builder
@@ -582,39 +573,39 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Expr::Function { .. } => todo!("anon function expr"),
         }
     }
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> CodeGenResult<'ctx> {
-        let type_name = self.lexer.span_str(type_decl.name);
-        let type_type = self
-            .context
-            .get_struct_type(type_name)
-            .unwrap_or_else(|| panic!("type not found: {}", type_name))
-            .as_basic_type_enum();
-        match type_decl.def {
-            TypeDef::Struct(ref fields) => {
-                let struct_name = self.lexer.span_str(type_decl.name);
-                let struct_type = type_type.into_struct_type();
-                let mut field_types: Vec<BasicTypeEnum> = Vec::new();
-                for field in fields {
-                    let field_type = self.get_basic_type(&field.ty);
-                    field_types.push(field_type);
-                }
-                struct_type.set_body(&field_types, false);
-            }
-            TypeDef::Tuple(ref fields) => {
-                let tuple_name = self.lexer.span_str(type_decl.name);
-                let tuple_type = type_type.into_struct_type();
-                let mut field_types: Vec<BasicTypeEnum> = Vec::new();
-                for field in fields {
-                    let field_type = self.get_basic_type(field);
-                    field_types.push(field_type);
-                }
-                tuple_type.set_body(&field_types, false);
-            }
-            _ => {
-                todo!("other type defs")
-            }
-        }
-        Ok(None)
+    fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
+        let type_name = &type_decl.name;
+        unimplemented!();
+        // let type_type = self
+        //     .context
+        //     .get_struct_type(type_name)
+        //     .unwrap_or_else(|| panic!("type not found: {}", type_name))
+        //     .as_basic_type_enum();
+        // match type_decl.def {
+        //     TypeDef::Struct(ref fields) => {
+        //         let struct_name = self.lexer.span_str(type_decl.name);
+        //         let struct_type = type_type.into_struct_type();
+        //         let mut field_types: Vec<BasicTypeEnum> = Vec::new();
+        //         for field in fields {
+        //             let field_type = self.get_basic_type(&field.ty);
+        //             field_types.push(field_type);
+        //         }
+        //         struct_type.set_body(&field_types, false);
+        //     }
+        //     TypeDef::Tuple(ref fields) => {
+        //         let tuple_name = self.lexer.span_str(type_decl.name);
+        //         let tuple_type = type_type.into_struct_type();
+        //         let mut field_types: Vec<BasicTypeEnum> = Vec::new();
+        //         for field in fields {
+        //             let field_type = self.get_basic_type(field);
+        //             field_types.push(field_type);
+        //         }
+        //         tuple_type.set_body(&field_types, false);
+        //     }
+        //     _ => {
+        //         todo!("other type defs")
+        //     }
+        // }
     }
     fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {
         Ok(None)

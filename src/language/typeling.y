@@ -29,29 +29,131 @@ item -> ParseResult<Item>
     ;
 
 alias_decl -> ParseResult<AliasDecl>
-    : "ALIAS" "IDENT" "ASSIGN" type "SEMICOLON" { Ok(AliasDecl {name: $2?.span(), original: $4?, span: $span}) }
+    : "ALIAS" "IDENT" "ASSIGN" type { Ok(AliasDecl {name: $2?.span(), original: $4?, span: $span}) }
     ;
 
-type_decl -> ParseResult<TypeDecl>
-    : "TYPE" "IDENT" type_def { Ok(TypeDecl {name: $2?.span(), def: $3?, span: $span}) }
+type_decl -> ParseResult<GADT>
+    : "TYPE" "IDENT" generics type_def {
+        let name = $lexer.span_str($2?.span()).to_string();
+        let generics = $3?;
+        let constructors = $4?;
+        let mut gadt = GADT {name, generics, constructors};
+        gadt.replace_shorthand().map_err(|name| Box::new(ParseError::DuplicateTypeConstructor(name)))?;
+        Ok(gadt) 
+    }
     ;
 
-type_def -> ParseResult<TypeDef>
-    : "SEMICOLON" { Ok(TypeDef::Unit) }
-    | tuple_def "SEMICOLON" { $1 }
-    | struct_def { $1 }
-    | "ASSIGN" enum_variants "SEMICOLON" { Ok(TypeDef::Enum($2?)) }
+generics -> ParseResult<Vec<String>>
+    : %empty { Ok(vec![]) }
+    | generic_list { $1 }
     ;
 
-tuple_def -> ParseResult<TypeDef>
-    : "LPAREN" "RPAREN" { Ok(TypeDef::Tuple(vec![])) }
-    | "LPAREN" tuple_params "RPAREN" { Ok(TypeDef::Tuple($2?)) }
+generic_list -> ParseResult<Vec<String>>
+    : "IDENT" { Ok(vec![ $lexer.span_str($1?.span()).to_string() ]) }
+    | generic_list "IDENT" { flatten($1, Ok($lexer.span_str($2?.span()).to_string())) }
     ;
 
-struct_def -> ParseResult<TypeDef>
-    : "LBRACE" "RBRACE" { Ok(TypeDef::Struct(vec![])) }
-    | "LBRACE" struct_fields "RBRACE" { Ok(TypeDef::Struct($2?)) }
-    | "LBRACE" struct_fields "COMMA" "RBRACE" { Ok(TypeDef::Struct($2?)) }
+type_def -> ParseResult<HashMap<String, GADTConstructor>>
+    : shorthand_def { $1 }
+    | "ASSIGN" type_constructors { $2 }
+    ;
+
+type_constructors -> ParseResult<HashMap<String, GADTConstructor>>
+    : type_constructor { 
+        let mut map = HashMap::new();
+        let constructor = $1?;
+        map.insert(constructor.clone().name().to_string(), constructor);
+        Ok(map)
+    }
+    | type_constructors "PIPE" type_constructor { 
+        let mut map = $1?;
+        let constructor = $3?;
+        let name = constructor.name().to_string();
+        if map.contains_key(&name) {
+            return Err(Box::new(ParseError::DuplicateTypeConstructor(name)));
+        }
+        map.insert(name, constructor);
+        Ok(map)
+    }
+    ;
+
+type_constructor -> ParseResult<GADTConstructor>
+    : "IDENT" type_constructor_params { 
+        let mut constructor = $2?;
+        let name = $lexer.span_str($1?.span()).to_string();
+        constructor.set_name(&name);
+        Ok(constructor) 
+    }
+    | "IDENT" shorthand_def { 
+        let mut constructor = $2?.get("@").unwrap().clone();
+        let name = $lexer.span_str($1?.span()).to_string();
+        constructor.set_name(&name);
+        Ok(constructor)
+     }
+    ;
+
+
+type_constructor_params -> ParseResult<GADTConstructor>
+    : anonymous_type_constructor_param_list { 
+        let name = "@".to_string();
+        Ok(GADTConstructor::Tuple { name, params: $1?}) 
+    }
+    | named_type_constructor_param_list { 
+        let name = "@".to_string();
+        Ok(GADTConstructor::Struct { name, fields: $1?})
+    }
+    ;
+
+anonymous_type_constructor_param_list -> ParseResult<Vec<Type>>
+    : type { Ok(vec![$1?]) }
+    | anonymous_type_constructor_param_list type { flatten($1, $2) }
+    ;
+
+named_type_constructor_param_list -> ParseResult<HashMap<String, Type>>
+    : "IDENT" "COLON" type { 
+        let mut map = HashMap::new();
+        let name = $lexer.span_str($1?.span()).to_string();
+        map.insert(name, $3?);
+        Ok(map)
+    }
+    | named_type_constructor_param_list "IDENT" "COLON" type { 
+        let mut map = $1?;
+        let name = $lexer.span_str($2?.span()).to_string();
+        if map.contains_key(&name) {
+            return Err(Box::new(ParseError::DuplicateTypeConstructorParam(name)));
+        }
+        map.insert(name, $4?);
+        Ok(map)
+    }
+    ;
+
+shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>
+    : %empty { 
+        let mut map = HashMap::new();
+        let name = "@".to_string();
+        map.insert(name.clone(), GADTConstructor::Unit{name});
+        Ok(map) 
+    }
+    | "LPAREN" tuple_params "RPAREN" { 
+        let mut map = HashMap::new();
+        let name = "@".to_string();
+        map.insert(name.clone(), GADTConstructor::Unit{name});
+        Ok(map) 
+    }
+    | struct_def { 
+        let mut map = HashMap::new();
+        let name = "@".to_string();
+        let mut constructor = $1?;
+        constructor.set_name(&name);
+        map.insert(name.clone(), constructor);
+        Ok(map) 
+    }
+    ;
+
+struct_def -> ParseResult<GADTConstructor>
+    : "LBRACE" "RBRACE" { Ok(GADTConstructor::Unit {name: "@".into()}) }
+    | "LBRACE" struct_fields "RBRACE" { Ok(GADTConstructor::Struct{ name: "@".into(), fields: $2? }) }
+    | "LBRACE" struct_fields "COMMA" "RBRACE" { Ok(GADTConstructor::Struct{ name: "@".into(), fields: $2? }) }
     ;
 
 tuple_params -> ParseResult<Vec<Type>>
@@ -59,28 +161,22 @@ tuple_params -> ParseResult<Vec<Type>>
     | tuple_params "COMMA" type { flatten($1, $3) }
     ;
 
-struct_fields -> ParseResult<Vec<StructField>>
-    : struct_field { Ok(vec![$1?]) }
-    | struct_fields "COMMA" struct_field { flatten($1, $3) }
-    ;
-
-struct_field -> ParseResult<StructField>
-    : "IDENT" "COLON" type { Ok(StructField { key: $1?.span(), ty: $3?, span: $span }) }
-    ;
-
-enum_variants -> ParseResult<Vec<EnumVariant>>
-    : enum_variant { Ok(vec![$1?]) }
-    | enum_variants "PIPE" enum_variant { flatten($1, $3) }
-    ;
-
-enum_variant -> ParseResult<EnumVariant>
-    : "IDENT" variant_type_def { Ok(EnumVariant {tag: $1?.span(), ty: $2?, span: $span}) }
-    ;
-
-variant_type_def -> ParseResult<TypeDef>
-    : %empty { Ok(TypeDef::Unit)}
-    | struct_def { $1 }
-    | tuple_def { $1 }
+struct_fields -> ParseResult<HashMap<String, Type>>
+    : "IDENT" "COLON" type { 
+        let mut map = HashMap::new();
+        let name = $lexer.span_str($1?.span()).to_string();
+        map.insert(name, $3?);
+        Ok(map) 
+    }
+    | struct_fields "COMMA" "IDENT" "COLON" type {
+        let mut map = $1?;
+        let name = $lexer.span_str($3?.span()).to_string();
+        if map.contains_key(&name) {
+            return Err(Box::new(ParseError::DuplicateTypeConstructorParam(name)));
+        }
+        map.insert(name, $5?);
+        Ok(map)
+    }
     ;
 
 function_decl -> ParseResult<FunctionDecl>
@@ -169,7 +265,7 @@ assign_stmt -> ParseResult<Assign>
 
 type -> ParseResult<Type>
     : primitive_type { $1 }
-    | "IDENT" { Ok(Type::Ident($1?.span())) }
+    | "IDENT" { Ok(Type::Ident($lexer.span_str($1?.span()).to_string())) }
     ;
 
 primitive_type -> ParseResult<Type>
@@ -247,10 +343,42 @@ unary_op -> ParseResult<UnOp>
 %%
 
 use crate::ast::*;
+use crate::types::{GADT, GADTConstructor};
+use std::collections::HashMap;
+use core::fmt::{self, Display, Formatter};
+use std::error::Error;
 
 fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<T>>
 {
     let mut flt = lhs?;
     flt.push(rhs?);
     Ok(flt)
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    DuplicateTypeConstructor(String),
+    DuplicateTypeConstructorParam(String),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        match self {
+            ParseError::DuplicateTypeConstructor(name) => {
+                write!(f, "Duplicate type constructor: {}", name)
+            }
+            ParseError::DuplicateTypeConstructorParam(name) => {
+                write!(f, "Duplicate type constructor param: {}", name)
+            }
+        }
+    }
+}
+
+impl Error for ParseError {
+    fn description(&self) -> &str {
+        match self {
+            ParseError::DuplicateTypeConstructor(_) => "Duplicate type constructor",
+            ParseError::DuplicateTypeConstructorParam(_) => "Duplicate type constructor param",
+        }
+    }
 }

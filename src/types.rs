@@ -1,29 +1,80 @@
 use std::collections::HashMap;
 
+use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
+
+use crate::ast::{File, Type};
+
 #[allow(dead_code)]
-#[derive(PartialEq, Debug)]
-pub enum Type {
-    Unit(String),
-    Int(IntType),
-    Float(FloatType),
-    Bool,
-    String,
-    Function(Box<FunctionProto>),
-    Tuple(Tuple),
-    Struct(Struct),
-    Enum(Enum),
+#[derive(Debug, PartialEq, Clone)]
+pub struct GADT {
+    pub name: String,
+    pub generics: Vec<String>,
+    pub constructors: HashMap<String, GADTConstructor>,
 }
+
+impl GADT {
+    pub fn add_constructor(&mut self, name: String, constructor: GADTConstructor) {
+        self.constructors.insert(name, constructor);
+    }
+}
+
+impl GADT {
+    pub fn replace_shorthand(&mut self) -> Result<(), String> {
+        if let Some(ref mut shorthand_constructor) = self.constructors.remove("@") {
+            if self.constructors.contains_key(&self.name) {
+                return Err(self.name.to_owned());
+            };
+            shorthand_constructor.set_name(&self.name);
+            self.constructors
+                .insert(self.name.clone(), shorthand_constructor.clone());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum GADTConstructor {
+    Unit {
+        name: String,
+    },
+    Tuple {
+        name: String,
+        params: Vec<Type>,
+    },
+    Struct {
+        name: String,
+        fields: HashMap<String, Type>,
+    },
+}
+
+impl GADTConstructor {
+    pub fn name(&self) -> &str {
+        match self {
+            GADTConstructor::Unit { name } => name,
+            GADTConstructor::Tuple { name, .. } => name,
+            GADTConstructor::Struct { name, .. } => name,
+        }
+    }
+    pub fn set_name(&mut self, name: &str) {
+        match self {
+            GADTConstructor::Unit { name: n } => *n = name.into(),
+            GADTConstructor::Tuple { name: n, .. } => *n = name.into(),
+            GADTConstructor::Struct { name: n, .. } => *n = name.into(),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub enum IntType {
-    I8,
-    I16,
-    I32,
+    // I8,
+    // I16,
+    // I32,
     I64,
-    I128,
+    // I128,
 }
 #[derive(PartialEq, Debug)]
 pub enum FloatType {
-    F32,
+    // F32,
     F64,
 }
 #[derive(PartialEq, Debug)]
@@ -32,76 +83,31 @@ pub struct FunctionProto {
     pub return_type: Type,
 }
 
-#[derive(PartialEq, Debug)]
-pub struct Tuple {
-    elements: Vec<Type>,
+struct TypeSystem {
+    types: HashMap<String, Type>,
+    aliases: HashMap<String, String>,
 }
 
-impl Tuple {
-    pub fn new() -> Self {
-        Self { elements: vec![] }
-    }
-}
-impl Default for Tuple {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct Struct {
-    fields: HashMap<String, Type>,
-}
-impl Struct {
+impl<'lexer, 'input> TypeSystem {
     pub fn new() -> Self {
         Self {
-            fields: HashMap::new(),
+            types: HashMap::new(),
+            aliases: HashMap::new(),
         }
     }
-}
-impl Default for Struct {
-    fn default() -> Self {
-        Self::new()
+    pub fn add_type(&mut self, name: impl Into<String>, ty: Type) {
+        self.types.insert(name.into(), ty);
     }
-}
+    pub fn get_type(&self, name: impl Into<String>) -> Option<&Type> {
+        self.types.get(&name.into())
+    }
 
-#[derive(PartialEq, Debug)]
-pub struct Enum {
-    variants: HashMap<String, EnumVariant>,
-}
-impl Enum {
-    pub fn new() -> Self {
-        Self {
-            variants: HashMap::new(),
-        }
-    }
-}
-impl Default for Enum {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub enum EnumVariant {
-    Unit,
-    Tuple(Tuple),
-    Struct(Struct),
-}
-
-impl Type {
-    pub fn new_tuple() -> Self {
-        Self::Tuple(Tuple { elements: vec![] })
-    }
-    pub fn new_struct() -> Self {
-        Self::Struct(Struct {
-            fields: HashMap::new(),
-        })
-    }
-    pub fn new_enum() -> Self {
-        Self::Enum(Enum {
-            variants: HashMap::new(),
-        })
+    pub fn type_definition_pass(
+        &mut self,
+        _lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
+        _file: &File,
+    ) {
+        unimplemented!("type definition pass")
     }
 }
 
@@ -110,51 +116,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_adt() {
-        let mut struct_type = Struct::new();
-        struct_type
-            .fields
-            .insert("x".to_string(), Type::Int(IntType::I64));
-        struct_type
-            .fields
-            .insert("y".to_string(), Type::Int(IntType::I64));
-        let x = Type::Struct(struct_type);
-        let y = Type::Struct(Struct {
-            fields: vec![
-                ("x".to_string(), Type::Int(IntType::I64)),
-                ("y".to_string(), Type::Int(IntType::I64)),
-            ]
-            .into_iter()
-            .collect(),
-        });
-        assert_eq!(x, y);
-    }
-
-    #[test]
-    fn test_type_map() {
-        let mut type_map = HashMap::new();
-        type_map.insert("i64".to_string(), Type::Int(IntType::I64));
-        type_map.insert("i32".to_string(), Type::Int(IntType::I32));
-        let mut struct_type = Struct::new();
-        struct_type
-            .fields
-            .insert("x".to_string(), Type::Int(IntType::I64));
-        struct_type
-            .fields
-            .insert("y".to_string(), Type::Int(IntType::I64));
-        type_map.insert("StructType".into(), Type::Struct(struct_type));
-
-        let mut enum_type = Enum::new();
-        enum_type
-            .variants
-            .insert("Unit".to_string(), EnumVariant::Unit);
-        enum_type.variants.insert(
-            "Tuple".to_string(),
-            EnumVariant::Tuple(Tuple {
-                elements: vec![Type::Int(IntType::I64), Type::Int(IntType::I64)],
-            }),
+    fn test_gadt() {
+        let unit1_name = "Unit1";
+        let mut unit1 = GADT {
+            name: unit1_name.to_owned(),
+            generics: vec![],
+            constructors: HashMap::new(),
+        };
+        unit1.constructors.insert(
+            unit1_name.to_owned(),
+            GADTConstructor::Unit {
+                name: unit1_name.to_owned(),
+            },
         );
-        type_map.insert("UnitType".into(), Type::Enum(enum_type));
-        println!("{:?}", type_map);
+        println!("{:?}", unit1);
     }
 }

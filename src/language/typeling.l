@@ -1,3 +1,4 @@
+
 %%
 fn "FN"
 return "RETURN"
@@ -37,8 +38,10 @@ false "FALSE"
 \: "COLON"
 \( "LPAREN"
 \) "RPAREN"
-\{ "LBRACE"
-\} "RBRACE"
+
+<INITIAL>\{ "LBRACE"
+<INITIAL>\} "RBRACE"
+
 \[ "LBRACKET"
 \] "RBRACKET"
 \, "COMMA"

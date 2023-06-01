@@ -2,6 +2,8 @@ use std::error::Error;
 
 use cfgrammar::Span;
 
+use crate::types::GADT;
+
 pub type ParseResult<T> = Result<T, Box<dyn Error>>;
 
 #[derive(Debug)]
@@ -13,7 +15,7 @@ pub struct File {
 #[derive(Debug)]
 pub enum Item {
     FunctionDecl(FunctionDecl),
-    TypeDecl(TypeDecl),
+    TypeDecl(GADT),
     AliasDecl(AliasDecl),
 }
 
@@ -52,9 +54,9 @@ pub enum Type {
     Float,
     Bool,
     String(usize),
-    Ident(Span),
-    Array(Box<Type>),
+    Ident(String),
     Function(Box<FunctionSig>),
+    GADT(GADT),
 }
 
 #[derive(Debug)]

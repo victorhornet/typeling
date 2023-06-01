@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::{ast::*, types::GADT};
 mod codegen;
 mod typecheck;
 pub use codegen::CodeGen;
@@ -39,7 +39,7 @@ pub trait Visitor<T> {
     fn visit_type(&mut self, type_: &Type) -> T {
         unimplemented!()
     }
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> T {
+    fn visit_type_decl(&mut self, type_decl: &GADT) -> T {
         unimplemented!()
     }
     fn visit_type_def(&mut self, type_def: &TypeDef) -> T {
@@ -162,24 +162,19 @@ impl Visitor<()> for SpanPrinter {
             Type::Float => println!("Type: float"),
             Type::Bool => println!("Type: bool"),
             Type::String(_) => println!("Type: string"),
-            Type::Array(element_type) => {
-                println!("Type: array");
-                self.visit_type(element_type);
-            }
             Type::Function(function_sig) => {
                 println!("Type: function");
                 self.visit_function_sig(function_sig);
             }
             Type::Ident(ident) => {
-                let ident = slice(&self.input, ident);
                 println!("Type: {}", ident);
             }
+            _ => unimplemented!(),
         }
     }
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) {
-        let ident = slice(&self.input, &type_decl.name);
+    fn visit_type_decl(&mut self, type_decl: &GADT) {
+        let ident = &type_decl.name;
         println!("Type declaration: {}", ident);
-        self.visit_type_def(&type_decl.def);
     }
     fn visit_type_def(&mut self, type_def: &TypeDef) {
         match type_def {
