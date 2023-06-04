@@ -51,7 +51,11 @@ fn function2() -> i64 {
 fn function3() -> f64 {
     t : bool = true;
     f : bool = false;
+<<<<<<< HEAD
     return 10.0;
+=======
+    return 10.0 - 3.0;
+>>>>>>> type-inference
 }
 
 fn i64_comparisons() {
@@ -154,6 +158,20 @@ fn fn_def_test2() -> i64 {
     return 10;
 }
 
+<<<<<<< HEAD
+=======
+fn returns_struct() -> StructType {
+    return 1;
+}
+
+fn type_inference() {
+    x : = 1; // i64
+    y : = 1.0; // f64
+    z : = true; // bool
+    w : = "hello"; // string
+}
+
+>>>>>>> type-inference
 fn hello() {
     printf("Hello \"world\" \'!\'\n num: %d\n", 1);
     printf("\tthis is a tabbed string\n");
@@ -169,7 +187,7 @@ fn pattern_match() {
 
 fn main() -> i64 {
     hello(); 
-    x : i64 = fib_while(50); 
+    x : i64 = fib_while(50);
     check: bool = x == 12586269025;
     printf("fib(50) = %llu (%d)\n", x, check); 
     return 0;

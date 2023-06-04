@@ -1,5 +1,7 @@
 use std::{collections::HashMap, error::Error};
 
+// globals definer -> type checker -> code generation
+
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -12,7 +14,7 @@ use inkwell::{
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::{ast::*, types::GADT};
+use crate::{ast::*, compiler::Stack, types::GADT};
 
 use super::Visitor;
 
@@ -21,7 +23,7 @@ pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
-    pub stack: Stack<'input, 'ctx>,
+    pub stack: Stack<'input, BasicValueEnum<'ctx>>,
     pub functions: HashMap<&'input str, FunctionValue<'ctx>>,
     pub current_function: Option<FunctionValue<'ctx>>,
 }
@@ -257,14 +259,15 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         }
         // todo: add type inferenece
         let var_type = match &var_decl.var_type {
-            Type::Unit => panic!("cannot declare a variable of type unit"),
-            Type::Int => BasicTypeEnum::IntType(self.context.i64_type()),
-            Type::Float => BasicTypeEnum::FloatType(self.context.f64_type()),
-            Type::Bool => BasicTypeEnum::IntType(self.context.bool_type()),
-            Type::String(_) => todo!("string type"),
-            Type::Ident(_) => todo!("custom type"),
-            Type::Function(_) => todo!("function type"),
-            _ => unimplemented!(),
+            Some(Type::Unit) => panic!("cannot declare a variable of type unit"),
+            Some(Type::Int) => BasicTypeEnum::IntType(self.context.i64_type()),
+            Some(Type::Float) => BasicTypeEnum::FloatType(self.context.f64_type()),
+            Some(Type::Bool) => BasicTypeEnum::IntType(self.context.bool_type()),
+            Some(Type::String(_)) => todo!("string type"),
+            Some(Type::Ident(_)) => todo!("custom type"),
+            Some(Type::Function(_)) => todo!("function type"),
+            Some(t) => unimplemented!("{:?}", t),
+            None => todo!("type inference"),
         };
         let var_ptr = self
             .builder
@@ -613,47 +616,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_print(&mut self, print: &Print) -> CodeGenResult<'ctx> {
         todo!("print");
-    }
-}
-
-#[derive(Default)]
-pub struct Stack<'input, 'ctx> {
-    frames: Vec<StackFrame<'input, 'ctx>>,
-}
-impl<'input, 'ctx> Stack<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn push(&mut self) {
-        self.frames.push(StackFrame::new());
-    }
-    pub fn pop(&mut self) {
-        self.frames.pop();
-    }
-    pub fn insert(&mut self, name: &'input str, value: BasicValueEnum<'ctx>) {
-        self.frames
-            .last_mut()
-            .expect("stack must have at least one frame")
-            .variables
-            .insert(name, value);
-    }
-    pub fn get(&self, name: &'input str) -> Option<BasicValueEnum<'ctx>> {
-        for frame in self.frames.iter().rev() {
-            if let Some(value) = frame.variables.get(name) {
-                return Some(*value);
-            }
-        }
-        None
-    }
-}
-
-#[derive(Default)]
-struct StackFrame<'input, 'ctx> {
-    pub variables: HashMap<&'input str, BasicValueEnum<'ctx>>,
-}
-impl<'input, 'ctx> StackFrame<'input, 'ctx> {
-    pub fn new() -> Self {
-        Self::default()
     }
 }
 

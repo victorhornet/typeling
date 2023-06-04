@@ -1,0 +1,19 @@
+fn fun() -> i64 {
+    a : i64 = 1;
+    b : i64 = 2;
+    c : f64 = 3.0;
+    d : f64 = 4.0;
+    e : bool = true;
+    f : bool = false;
+
+    g : i64 = -10;
+
+    h := e && f;
+
+    x := 1;
+    y := 2.0;
+    z := x + x;
+    return 2;
+}
+
+fn main() {}
