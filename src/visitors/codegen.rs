@@ -571,6 +571,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 Ok(res)
             }
             Expr::Function { .. } => todo!("anon function expr"),
+            Expr::ConstructorCall { .. } => todo!("constructor call expr"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {

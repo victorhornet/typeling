@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 
 use cfgrammar::Span;
 
@@ -17,6 +17,14 @@ pub enum Item {
     FunctionDecl(FunctionDecl),
     TypeDecl(GADT),
     AliasDecl(AliasDecl),
+}
+
+#[derive(Debug)]
+pub enum IdentType {
+    Variable,
+    Function,
+    Type,
+    Alias,
 }
 
 #[derive(Debug)]
@@ -162,6 +170,13 @@ pub struct FunctionCall {
 }
 
 #[derive(Debug)]
+pub enum ConstructorCallArgs {
+    None,
+    Tuple(Vec<Expr>),
+    Struct(HashMap<String, Expr>),
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Int {
         value: i64,
@@ -217,6 +232,11 @@ pub enum Expr {
     FunctionCall {
         name: Span,
         args: Vec<Expr>,
+        span: Span,
+    },
+    ConstructorCall {
+        name: Span,
+        args: ConstructorCallArgs,
         span: Span,
     },
 }

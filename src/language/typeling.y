@@ -9,7 +9,7 @@
 %nonassoc "NOT" 
 
 
-%right "IDENT" "LPAREN"
+%right "IDENT" "LBRACKET" "LPAREN" "LBRACE"
 
 %%
 file -> ParseResult<File>
@@ -327,12 +327,26 @@ array_elem_list -> ParseResult<Vec<Expr>>
 term -> ParseResult<Expr>
     : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
+    | "IDENT" "LBRACE" named_arg_list "RBRACE" { Ok( Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::Struct($3?), span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
     | "TRUE" { Ok( Expr::Bool{value: true, span: $span}) }
     | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
     | "LPAREN" expr "RPAREN" { $2 }
+    ;
+
+named_arg_list -> ParseResult<HashMap<String,Expr>>
+    : "IDENT" "COLON" expr { init_map($lexer.span_str($1?.span()).to_string(), $3?) }
+    | named_arg_list "COMMA" "IDENT" "COLON" expr {
+        let mut map = $1?;
+        let arg_name = $lexer.span_str($3?.span()).to_string();
+        if map.contains_key(&arg_name) {
+            return Err(Box::new(ParseError::DuplicateFieldName(arg_name)));
+        }
+        map.insert(arg_name, $5?);
+        Ok(map)
+    }
     ;
 
 unary_op -> ParseResult<UnOp>
@@ -355,10 +369,19 @@ fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<
     Ok(flt)
 }
 
+fn init_map<T>(key: String, value: T) -> ParseResult<HashMap<String, T>>
+{
+    let mut map = HashMap::new();
+    map.insert(key, value);
+    Ok(map)
+}
+
+
 #[derive(Debug)]
 pub enum ParseError {
     DuplicateTypeConstructor(String),
     DuplicateTypeConstructorParam(String),
+    DuplicateFieldName(String),
 }
 
 impl Display for ParseError {
@@ -370,6 +393,9 @@ impl Display for ParseError {
             ParseError::DuplicateTypeConstructorParam(name) => {
                 write!(f, "Duplicate type constructor param: {}", name)
             }
+            ParseError::DuplicateFieldName(name) => {
+                write!(f, "Duplicate field name: {}", name)
+            }
         }
     }
 }
@@ -379,6 +405,7 @@ impl Error for ParseError {
         match self {
             ParseError::DuplicateTypeConstructor(_) => "Duplicate type constructor",
             ParseError::DuplicateTypeConstructorParam(_) => "Duplicate type constructor param",
+            ParseError::DuplicateFieldName(_) => "Duplicate field name",
         }
     }
 }

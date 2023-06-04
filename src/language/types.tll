@@ -18,3 +18,11 @@ type Phantom x = Phantom // `Phantom` type with type constructor `Phantom` and g
 
 type Result O E = Ok O | Err E
 type Option T = Some T | None
+
+fn main() {
+    a: Unit1 = Unit1;
+    b: Tuple1 = Tuple1(1, 2.0, true);
+    c: Struct1 = Struct1 { a: 1, b: 2.0, c: true, d: Unit1 };
+    d: Enum1 = A;
+
+}
