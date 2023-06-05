@@ -167,10 +167,6 @@ impl Visitor<()> for SpanPrinter {
             Type::Float => println!("Type: float"),
             Type::Bool => println!("Type: bool"),
             Type::String(_) => println!("Type: string"),
-            Type::Function(function_sig) => {
-                println!("Type: function");
-                self.visit_function_sig(function_sig);
-            }
             Type::Ident(ident) => {
                 println!("Type: {}", ident);
             }

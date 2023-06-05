@@ -64,7 +64,6 @@ pub enum Type {
     Bool,
     String(usize),
     Ident(String),
-    Function(Box<FunctionSig>),
     GADT(GADT),
 }
 
