@@ -7,18 +7,14 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
-    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
+    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::{
-    ast::*,
-    compiler::CompilerContext,
-    type_system::{GADTConstructor, GADT},
-};
+use crate::{ast::*, compiler::CompilerContext, type_system::GADT};
 
 use crate::visitors::Visitor;
 
@@ -78,7 +74,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
 
-    fn build_sizeof(&self, t: &dyn BasicType<'ctx>) -> IntValue<'ctx> {
+    fn _build_sizeof(&self, t: &dyn BasicType<'ctx>) -> IntValue<'ctx> {
         unsafe {
             let ptr = t.ptr_type(AddressSpace::default()).const_null();
 
@@ -92,7 +88,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
 
-    fn build_offsetof(&self, t: &dyn BasicType<'ctx>, i: u64) -> IntValue<'ctx> {
+    fn _build_offsetof(&self, t: &dyn BasicType<'ctx>, i: u64) -> IntValue<'ctx> {
         unsafe {
             let ptr = t.ptr_type(AddressSpace::default()).const_null();
             let offset2 = self.builder.build_gep(
@@ -696,14 +692,14 @@ type CodeGenResult<'a> = Result<Option<BasicValueEnum<'a>>, Box<dyn Error>>;
 pub mod tests {
     use std::{collections::HashMap, path::Path};
 
-    use inkwell::{execution_engine::JitFunction, types::AsTypeRef, AddressSpace};
+    use inkwell::{execution_engine::JitFunction, AddressSpace};
 
     use crate::{
         ast::Type,
         type_system::{GADTConstructor, GADT},
     };
 
-    use super::{constructor_to_type, gadt_to_type};
+    use crate::type_system::gadt_to_type;
 
     #[test]
     fn test_struct_generation() {
@@ -933,7 +929,26 @@ pub mod tests {
         };
         let enum_type = gadt_to_type(&enum_gadt, &context);
         let enum_value = builder.build_alloca(enum_type, "enum_value");
-        let enum_size = enum_type.size_of().unwrap();
+        let _enum_size = enum_type.size_of().unwrap();
+
+        // SomeType = SomeType Enum
+        let mut constructors = HashMap::new();
+        let constructor = GADTConstructor::Tuple {
+            name: "SomeType".into(),
+            params: vec![
+                Type::GADT(enum_gadt.clone()),
+                Type::Ident("Enum".to_string()),
+            ],
+        };
+        constructors.insert("SomeType".to_string(), constructor);
+        let some_gadt = GADT {
+            name: "SomeType".to_string(),
+            constructors,
+            generics: vec![],
+        };
+        let some_gadt_type = gadt_to_type(&some_gadt, &context);
+        let some_gadt_value = builder.build_alloca(some_gadt_type, "some_gadt_value");
+        let _some_gadt_size = some_gadt_type.size_of().unwrap();
 
         builder.build_return(None);
         module.verify().unwrap();
@@ -947,46 +962,5 @@ pub mod tests {
                 execution_engine.get_function("unit_test").unwrap();
             jit_function.call();
         }
-    }
-}
-
-fn constructor_to_type<'ctx>(
-    constructor: &GADTConstructor,
-    context: &'ctx Context,
-) -> StructType<'ctx> {
-    let t = context.opaque_struct_type(constructor.name());
-    match constructor {
-        GADTConstructor::Unit { .. } => {
-            t.set_body(&[], false);
-        }
-        GADTConstructor::Tuple { params, .. } => {
-            let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
-            t.set_body(&f, false);
-        }
-        GADTConstructor::Struct { fields, .. } => {
-            let f: Vec<BasicTypeEnum> = fields.values().map(ast_type_to_basic(context)).collect();
-            t.set_body(&f, false);
-        }
-    }
-    t
-}
-
-fn gadt_to_type<'ctx>(gadt: &GADT, context: &'ctx Context) -> StructType<'ctx> {
-    let t = context.opaque_struct_type(&gadt.name);
-    let max_constructor = gadt.get_max_constructor();
-    let tag = context.i64_type();
-    let inner = constructor_to_type(max_constructor, context);
-    t.set_body(&[tag.into(), inner.into()], false);
-    t
-}
-
-fn ast_type_to_basic<'ctx>(context: &'ctx Context) -> impl Fn(&Type) -> BasicTypeEnum<'ctx> {
-    |p| match p {
-        Type::Bool => context.bool_type().into(),
-        Type::Int => context.i64_type().into(),
-        Type::Float => context.f64_type().into(),
-        Type::String(size) => context.i8_type().array_type(*size as u32).into(),
-        Type::Ident(name) => context.get_struct_type(name).unwrap().into(),
-        _ => unimplemented!("Unsupported type in tuple"),
     }
 }

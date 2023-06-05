@@ -64,7 +64,7 @@ impl<'input, T: Copy> Default for StackFrame<'input, T> {
 }
 
 pub enum CompileError {
-    InvalidType(TypeCheckError),
+    InvalidType(Box<TypeCheckError>),
     Unimplemented,
 }
 

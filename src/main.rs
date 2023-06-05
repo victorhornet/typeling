@@ -11,7 +11,7 @@ use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path};
-use type_system::{TypeChecker, TypeSystem};
+use type_system::TypeSystem;
 
 lrlex_mod!("language/typeling.l");
 lrpar_mod!("language/typeling.y");

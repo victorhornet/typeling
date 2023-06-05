@@ -1,5 +1,7 @@
-use std::collections::HashMap;
-
+use inkwell::{
+    context::Context,
+    types::{BasicTypeEnum, StructType},
+};
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 
 use crate::{ast::*, compiler::CompilerContext};
@@ -78,7 +80,7 @@ pub fn infer_types(file: &mut File) -> Result<(), Vec<()>> {
                 for statement in &mut f.body.statements {
                     match statement {
                         Statement::VarDecl(var_decl) => {
-                            if let Some(expr) = &var_decl.value {
+                            if let Some(_expr) = &var_decl.value {
                                 let ty = Type::Unit;
                                 var_decl.var_type = Some(ty.clone());
                             }
@@ -95,6 +97,8 @@ pub fn infer_types(file: &mut File) -> Result<(), Vec<()>> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     #[test]
@@ -136,5 +140,47 @@ mod tests {
                 _ => continue,
             }
         }
+    }
+}
+
+pub fn constructor_to_type<'ctx>(
+    constructor: &GADTConstructor,
+    context: &'ctx Context,
+) -> StructType<'ctx> {
+    let t = context.opaque_struct_type(constructor.name());
+    match constructor {
+        GADTConstructor::Unit { .. } => {
+            t.set_body(&[], false);
+        }
+        GADTConstructor::Tuple { params, .. } => {
+            let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
+            t.set_body(&f, false);
+        }
+        GADTConstructor::Struct { fields, .. } => {
+            let f: Vec<BasicTypeEnum> = fields.values().map(ast_type_to_basic(context)).collect();
+            t.set_body(&f, false);
+        }
+    }
+    t
+}
+
+pub fn gadt_to_type<'ctx>(gadt: &GADT, context: &'ctx Context) -> StructType<'ctx> {
+    let t = context.opaque_struct_type(&gadt.name);
+    let max_constructor = gadt.get_max_constructor();
+    let tag = context.i64_type();
+    let inner = constructor_to_type(max_constructor, context);
+    t.set_body(&[tag.into(), inner.into()], false);
+    t
+}
+
+pub fn ast_type_to_basic<'ctx>(context: &'ctx Context) -> impl Fn(&Type) -> BasicTypeEnum<'ctx> {
+    |p| match p {
+        Type::Unit => context.struct_type(&[], false).into(),
+        Type::Bool => context.bool_type().into(),
+        Type::Int => context.i64_type().into(),
+        Type::Float => context.f64_type().into(),
+        Type::String(size) => context.i8_type().array_type(*size as u32).into(),
+        Type::Ident(name) => context.get_struct_type(name).unwrap().into(),
+        Type::GADT(gadt) => gadt_to_type(gadt, context).into(),
     }
 }
