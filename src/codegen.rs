@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
 // globals definer -> type checker -> code generation
 
@@ -8,15 +8,17 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
-    values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, StructValue,
-    },
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::{ast::*, compiler::CompilerContext, type_system::GADT};
+use crate::{
+    ast::*,
+    compiler::CompilerContext,
+    type_system::{GADTConstructor, GADT},
+};
 
 use crate::visitors::Visitor;
 
@@ -133,7 +135,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                     BasicMetadataTypeEnum::IntType(self.llvm_ctx.bool_type())
                                 }
                                 Type::String(_) => todo!("string type"),
-                                Type::Function(_) => todo!("function type"),
                                 Type::Ident(name) => self
                                     .llvm_ctx
                                     .get_struct_type(name.as_str())
@@ -151,7 +152,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         Type::Float => self.llvm_ctx.f64_type().fn_type(&params, false),
                         Type::Bool => self.llvm_ctx.bool_type().fn_type(&params, false),
                         Type::String(_) => todo!("string type"),
-                        Type::Function(_) => todo!("function type"),
                         Type::Ident(name) => self
                             .llvm_ctx
                             .get_struct_type(name.as_str())
@@ -189,7 +189,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .i8_type()
                 .array_type(*size as u32)
                 .as_basic_type_enum(),
-            Type::Function(_) => todo!("function type"),
             Type::Ident(name) => self
                 .llvm_ctx
                 .get_struct_type(name)
@@ -309,7 +308,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(Type::Bool) => BasicTypeEnum::IntType(self.llvm_ctx.bool_type()),
             Some(Type::String(_)) => todo!("string type"),
             Some(Type::Ident(_)) => todo!("custom type"),
-            Some(Type::Function(_)) => todo!("function type"),
             Some(t) => unimplemented!("{:?}", t),
             None => todo!("type inference"),
         };
@@ -696,7 +694,16 @@ type CodeGenResult<'a> = Result<Option<BasicValueEnum<'a>>, Box<dyn Error>>;
 
 #[cfg(test)]
 pub mod tests {
-    use inkwell::{execution_engine::JitFunction, AddressSpace};
+    use std::{collections::HashMap, path::Path};
+
+    use inkwell::{execution_engine::JitFunction, types::AsTypeRef, AddressSpace};
+
+    use crate::{
+        ast::Type,
+        type_system::{GADTConstructor, GADT},
+    };
+
+    use super::{constructor_to_type, gadt_to_type};
 
     #[test]
     fn test_struct_generation() {
@@ -810,7 +817,9 @@ pub mod tests {
         unsafe {
             let size1 = builder.build_gep(ptr1, &[context.i32_type().const_int(1, false)], "Size");
             let val1 = builder.build_ptr_to_int(size1, context.i32_type(), "SizeInt");
+            let val11 = s1.size_of().unwrap();
             val1.print_to_stderr();
+            val11.print_to_stderr();
 
             let size2 = builder.build_gep(ptr2, &[context.i32_type().const_int(1, false)], "Size");
             let val2 = builder.build_ptr_to_int(size2, context.i32_type(), "SizeInt");
@@ -838,5 +847,146 @@ pub mod tests {
             let res = jit_function.call();
             println!("Returned size: {}", res)
         }
+    }
+
+    #[test]
+    fn test_unit_type() {
+        let context = inkwell::context::Context::create();
+        let builder = context.create_builder();
+        let module = context.create_module("unit_test");
+        let execution_engine = module
+            .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+            .unwrap();
+        let ty = context.i64_type();
+
+        let name = "unit_test";
+        let fn_ty = ty.fn_type(&[], false);
+        let test_fn = module.add_function(name, fn_ty, None);
+        let block = context.append_basic_block(test_fn, "entry");
+        builder.position_at_end(block);
+
+        let unit_struct = context.struct_type(&[context.i64_type().into()], false);
+        let val = unit_struct.size_of().unwrap();
+
+        let unit = context.opaque_struct_type("unit");
+        unit.set_body(&[context.i64_type().into()], false);
+
+        let ptr = builder.build_alloca(unit, "unit_struct");
+        let tag = builder.build_struct_gep(ptr, 0, "tag").unwrap();
+        builder.build_store(tag, context.i64_type().const_int(10, false));
+
+        builder.build_return(Some(&val));
+        module.verify().unwrap();
+        module
+            .print_to_file(Path::new("examples/unit_test.ll"))
+            .unwrap();
+
+        unsafe {
+            type Main = unsafe extern "C" fn() -> i64;
+            let jit_function: JitFunction<Main> =
+                execution_engine.get_function("unit_test").unwrap();
+            let res = jit_function.call();
+            println!("Returned unit_test: {}", res)
+        }
+    }
+
+    #[test]
+    fn test_constructor_codegen() {
+        let context = inkwell::context::Context::create();
+        let builder = context.create_builder();
+        let module = context.create_module("unit_test");
+        let execution_engine = module
+            .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+            .unwrap();
+
+        let fn_ty = context.void_type().fn_type(&[], false);
+        let test_fn = module.add_function("unit_test", fn_ty, None);
+        let block = context.append_basic_block(test_fn, "entry");
+        builder.position_at_end(block);
+
+        let unit_constructor = GADTConstructor::Unit {
+            name: "Unit".to_string(),
+        };
+
+        let tuple_constructor = GADTConstructor::Tuple {
+            name: "Tuple".to_string(),
+            params: vec![Type::Int, Type::Bool, Type::Int],
+        };
+
+        let mut struct_fields = HashMap::new();
+        struct_fields.insert("x".to_string(), Type::Int);
+        struct_fields.insert("y".to_string(), Type::Bool);
+
+        let struct_constructor = GADTConstructor::Struct {
+            name: "Struct".to_string(),
+            fields: struct_fields,
+        };
+
+        let mut constructors = HashMap::new();
+        constructors.insert("Unit".to_string(), unit_constructor);
+        constructors.insert("Tuple".to_string(), tuple_constructor);
+        constructors.insert("Struct".to_string(), struct_constructor);
+        let enum_gadt = GADT {
+            name: "Enum".to_string(),
+            constructors,
+            generics: vec![],
+        };
+        let enum_type = gadt_to_type(&enum_gadt, &context);
+        let enum_value = builder.build_alloca(enum_type, "enum_value");
+        let enum_size = enum_type.size_of().unwrap();
+
+        builder.build_return(None);
+        module.verify().unwrap();
+        module
+            .print_to_file(Path::new("examples/constructor_test.ll"))
+            .unwrap();
+
+        unsafe {
+            type Main = unsafe extern "C" fn() -> ();
+            let jit_function: JitFunction<Main> =
+                execution_engine.get_function("unit_test").unwrap();
+            jit_function.call();
+        }
+    }
+}
+
+fn constructor_to_type<'ctx>(
+    constructor: &GADTConstructor,
+    context: &'ctx Context,
+) -> StructType<'ctx> {
+    let t = context.opaque_struct_type(constructor.name());
+    match constructor {
+        GADTConstructor::Unit { .. } => {
+            t.set_body(&[], false);
+        }
+        GADTConstructor::Tuple { params, .. } => {
+            let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
+            t.set_body(&f, false);
+        }
+        GADTConstructor::Struct { fields, .. } => {
+            let f: Vec<BasicTypeEnum> = fields.values().map(ast_type_to_basic(context)).collect();
+            t.set_body(&f, false);
+        }
+    }
+    t
+}
+
+fn gadt_to_type<'ctx>(gadt: &GADT, context: &'ctx Context) -> StructType<'ctx> {
+    let t = context.opaque_struct_type(&gadt.name);
+    let max_constructor = gadt.get_max_constructor();
+    let tag = context.i64_type();
+    let inner = constructor_to_type(max_constructor, context);
+    t.set_body(&[tag.into(), inner.into()], false);
+    t
+}
+
+fn ast_type_to_basic<'ctx>(context: &'ctx Context) -> impl Fn(&Type) -> BasicTypeEnum<'ctx> {
+    |p| match p {
+        Type::Bool => context.bool_type().into(),
+        Type::Int => context.i64_type().into(),
+        Type::Float => context.f64_type().into(),
+        Type::String(size) => context.i8_type().array_type(*size as u32).into(),
+        Type::Ident(name) => context.get_struct_type(name).unwrap().into(),
+        _ => unimplemented!("Unsupported type in tuple"),
     }
 }
