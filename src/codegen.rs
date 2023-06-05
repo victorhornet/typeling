@@ -16,7 +16,7 @@ use lrpar::NonStreamingLexer;
 
 use crate::{ast::*, compiler::Stack, types::GADT};
 
-use super::Visitor;
+use crate::visitors::Visitor;
 
 pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,

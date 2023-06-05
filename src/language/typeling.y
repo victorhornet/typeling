@@ -9,7 +9,7 @@
 %nonassoc "NOT" 
 
 
-%right "IDENT" "LBRACKET" "LPAREN" "LBRACE"
+%right "IDENT" "LPAREN" 
 
 %%
 file -> ParseResult<File>
@@ -328,7 +328,6 @@ array_elem_list -> ParseResult<Vec<Expr>>
 term -> ParseResult<Expr>
     : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
-    | "IDENT" "LBRACE" named_arg_list "RBRACE" { Ok( Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::Struct($3?), span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
@@ -337,18 +336,6 @@ term -> ParseResult<Expr>
     | "LPAREN" expr "RPAREN" { $2 }
     ;
 
-named_arg_list -> ParseResult<HashMap<String,Expr>>
-    : "IDENT" "COLON" expr { init_map($lexer.span_str($1?.span()).to_string(), $3?) }
-    | named_arg_list "COMMA" "IDENT" "COLON" expr {
-        let mut map = $1?;
-        let arg_name = $lexer.span_str($3?.span()).to_string();
-        if map.contains_key(&arg_name) {
-            return Err(Box::new(ParseError::DuplicateFieldName(arg_name)));
-        }
-        map.insert(arg_name, $5?);
-        Ok(map)
-    }
-    ;
 
 unary_op -> ParseResult<UnOp>
     : "MINUS" { Ok(UnOp::Neg($span)) }
@@ -358,7 +345,7 @@ unary_op -> ParseResult<UnOp>
 %%
 
 use crate::ast::*;
-use crate::types::{GADT, GADTConstructor};
+use crate::type_system::{GADT, GADTConstructor};
 use std::collections::HashMap;
 use core::fmt::{self, Display, Formatter};
 use std::error::Error;

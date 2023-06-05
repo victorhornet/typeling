@@ -1,10 +1,5 @@
-use crate::{ast::*, types::GADT};
-mod codegen;
-mod typecheck;
-pub use codegen::CodeGen;
-pub use typecheck::TypeChecker;
+use crate::{ast::*, type_system::GADT};
 
-use self::typecheck::TypeCheckError;
 #[allow(unused_variables)]
 pub trait Visitor<T> {
     fn visit_file(&mut self, file: &File) -> T {
@@ -289,9 +284,4 @@ impl Visitor<()> for SpanPrinter {
     fn visit_expr(&mut self, _expr: &Expr) {}
     fn visit_bin_op(&mut self, _binary_op: &BinOp) {}
     fn visit_un_op(&mut self, _unary_op: &UnOp) {}
-}
-
-pub enum CompileError {
-    InvalidType(TypeCheckError),
-    Unimplemented,
 }

@@ -1,13 +1,16 @@
 pub mod ast;
+pub mod codegen;
 pub mod compiler;
+pub mod typecheck;
 pub mod types;
 pub mod visitors;
 use clap::Parser;
+use codegen::CodeGen;
 use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path};
-use visitors::{CodeGen, TypeChecker};
+use typecheck::TypeChecker;
 
 lrlex_mod!("language/typeling.l");
 lrpar_mod!("language/typeling.y");
@@ -71,7 +74,7 @@ fn main() {
 
                 let context = Context::create();
 
-                let mut typechecker = TypeChecker::new(&lexer, &context);
+                let mut typechecker = TypeChecker::new(&lexer);
                 typechecker.check(&file).expect("Type checking failed");
 
                 let mut codegen = CodeGen::new(&lexer, &context);

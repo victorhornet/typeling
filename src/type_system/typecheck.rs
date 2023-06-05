@@ -1,22 +1,19 @@
 use std::collections::HashMap;
 
-use inkwell::context::Context;
-use inkwell::types::AnyTypeEnum;
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
 use crate::ast::*;
-use crate::compiler::Stack;
-use crate::types::GADT;
+use crate::type_system::GADT;
 
-use super::Visitor;
+use crate::visitors::Visitor;
 
-pub struct TypeChecker<'lexer, 'input, 'ctx> {
+pub struct TypeChecker<'lexer, 'input> {
     pub vars: HashMap<&'input str, Type>,
     pub var_stack: TypeStack<'input>,
     lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
-    context: &'ctx Context,
     funs: HashMap<&'input str, Type>,
+    errs: Vec<TypeCheckError>,
 }
 
 pub struct TypeStack<'input> {
@@ -49,6 +46,12 @@ impl<'input> TypeStack<'input> {
     }
 }
 
+impl<'input> Default for TypeStack<'input> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct TypeStackFrame<'input> {
     vars: HashMap<&'input str, Type>,
     funs: HashMap<&'input str, Type>,
@@ -63,17 +66,20 @@ impl<'input> TypeStackFrame<'input> {
     }
 }
 
-impl<'lexer, 'input, 'ctx> TypeChecker<'lexer, 'input, 'ctx> {
-    pub fn new(
-        lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
-        context: &'ctx Context,
-    ) -> Self {
+impl<'input> Default for TypeStackFrame<'input> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'lexer, 'input> TypeChecker<'lexer, 'input> {
+    pub fn new(lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>) -> Self {
         Self {
             vars: HashMap::new(),
             var_stack: TypeStack::new(),
             funs: HashMap::new(),
-            context,
             lexer,
+            errs: vec![],
         }
     }
     pub fn check(&mut self, file: &File) -> TypeCheckResult<()> {
@@ -84,19 +90,8 @@ impl<'lexer, 'input, 'ctx> TypeChecker<'lexer, 'input, 'ctx> {
         }
         Ok(())
     }
-    fn get_basic_type(&self, ty: Type) -> TypeCheckResult<AnyTypeEnum<'ctx>> {
-        match ty {
-            Type::Unit => Ok(self.context.void_type().into()),
-            Type::Int => Ok(self.context.i64_type().into()),
-            Type::Float => Ok(self.context.f64_type().into()),
-            Type::Bool => Ok(self.context.bool_type().into()),
-            Type::String(size) => Ok(self.context.i8_type().array_type(size as u32).into()),
-            Type::Function(_) => unimplemented!(),
-            t => unimplemented!("{:?}", t),
-        }
-    }
 }
-impl<'lexer, 'input, 'ctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'ctx> {
+impl<'lexer, 'input> Visitor<TCResult> for TypeChecker<'lexer, 'input> {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> TCResult {
         match var_decl.var_type.clone() {
             Some(var_type) => self
@@ -200,6 +195,7 @@ impl<'lexer, 'input, 'ctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'ct
         Ok(None)
     }
     fn visit_block(&mut self, block: &Block) -> TCResult {
+        self.var_stack.push();
         let mut block_type = Type::Unit;
         for stmt in &block.statements {
             if let Statement::Return(ret) = stmt {
@@ -211,11 +207,12 @@ impl<'lexer, 'input, 'ctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'ct
                 self.visit_statement(stmt)?;
             }
         }
+        self.var_stack.pop();
         Ok(Some(block_type))
     }
 
-    fn visit_type_decl(&mut self, _type_decl: &GADT) -> TCResult {
-        Ok(None)
+    fn visit_type_decl(&mut self, type_decl: &GADT) -> TCResult {
+        Ok(Some(Type::GADT(type_decl.clone())))
     }
     fn visit_alias_decl(&mut self, _alias_decl: &AliasDecl) -> TCResult {
         Ok(None)

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::typecheck::TypeCheckError;
+
 #[allow(dead_code)]
 struct Compiler;
 
@@ -33,6 +35,12 @@ impl<'input, T: Copy> Stack<'input, T> {
     }
 }
 
+impl<'input, T: Copy> Default for Stack<'input, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct StackFrame<'input, T: Copy> {
     pub variables: HashMap<&'input str, T>,
 }
@@ -42,4 +50,15 @@ impl<'input, T: Copy> StackFrame<'input, T> {
             variables: HashMap::new(),
         }
     }
+}
+
+impl<'input, T: Copy> Default for StackFrame<'input, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub enum CompileError {
+    InvalidType(TypeCheckError),
+    Unimplemented,
 }
