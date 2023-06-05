@@ -2,24 +2,24 @@ use std::{collections::HashMap, error::Error};
 
 use cfgrammar::Span;
 
-use crate::types::GADT;
+use crate::type_system::GADT;
 
 pub type ParseResult<T> = Result<T, Box<dyn Error>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct File {
     pub items: Vec<Item>,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Item {
     FunctionDecl(FunctionDecl),
     TypeDecl(GADT),
     AliasDecl(AliasDecl),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IdentType {
     Variable,
     Function,
@@ -27,7 +27,7 @@ pub enum IdentType {
     Alias,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub function_sig: FunctionSig,
     pub body: Block,
@@ -68,14 +68,14 @@ pub enum Type {
     GADT(GADT),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeDecl {
     pub name: Span,
     pub def: TypeDef,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeDef {
     Unit,
     Tuple(Vec<Type>),
@@ -83,33 +83,33 @@ pub enum TypeDef {
     Enum(Vec<EnumVariant>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructField {
     pub key: Span,
     pub ty: Type,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumVariant {
     pub tag: Span,
     pub ty: TypeDef,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AliasDecl {
     pub name: Span,
     pub original: Type,
     pub span: Span,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub statements: Vec<Statement>,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Expr(Expr),
     Block(Block),
@@ -121,19 +121,19 @@ pub enum Statement {
     Return(Return),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Print {
     pub value: Expr,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Return {
     pub value: Option<Expr>,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct If {
     pub condition: Expr,
     pub then_block: Block,
@@ -141,14 +141,14 @@ pub struct If {
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct While {
     pub condition: Expr,
     pub body: Block,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDecl {
     pub name: Span,
     pub var_type: Option<Type>,
@@ -156,28 +156,28 @@ pub struct VarDecl {
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Assign {
     pub name: Span,
     pub value: Expr,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionCall {
     pub name: Span,
     pub args: Vec<Expr>,
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstructorCallArgs {
     None,
     Tuple(Vec<Expr>),
     Struct(HashMap<String, Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Int {
         value: i64,
@@ -242,7 +242,7 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOp {
     Add(Span),
     Sub(Span),
@@ -259,13 +259,13 @@ pub enum BinOp {
     Or(Span),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnOp {
     Neg(Span),
     Not(Span),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum IndentationLevel {
     Tabs { amount: u32, span: Span },
     Spaces { amount: u32, span: Span },

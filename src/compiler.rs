@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::typecheck::TypeCheckError;
+use inkwell::values::{BasicValueEnum, FunctionValue};
+
+use crate::{
+    ast::Type,
+    type_system::{TypeCheckError, GADT},
+};
 
 #[allow(dead_code)]
 struct Compiler;
@@ -61,4 +66,36 @@ impl<'input, T: Copy> Default for StackFrame<'input, T> {
 pub enum CompileError {
     InvalidType(TypeCheckError),
     Unimplemented,
+}
+
+pub struct CompilerContext<'input, 'ctx> {
+    pub type_constructors: HashMap<String, GADT>,
+    pub types: HashMap<String, Type>,
+    pub aliases: HashMap<String, String>,
+    pub basic_value_stack: Stack<'input, BasicValueEnum<'ctx>>,
+    pub function_values: HashMap<&'input str, FunctionValue<'ctx>>,
+}
+
+impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
+    pub fn new() -> Self {
+        Self {
+            type_constructors: HashMap::new(),
+            types: HashMap::new(),
+            aliases: HashMap::new(),
+            basic_value_stack: Stack::new(),
+            function_values: HashMap::new(),
+        }
+    }
+    pub fn add_type_constructor(&mut self, name: &str, gadt: &GADT) {
+        if self.type_constructors.contains_key(name) {
+            panic!("Duplicate constructor name: {}", name);
+        }
+        self.type_constructors.insert(name.into(), gadt.clone());
+    }
+}
+
+impl<'input, 'ctx> Default for CompilerContext<'input, 'ctx> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
