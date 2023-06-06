@@ -897,7 +897,6 @@ pub mod tests {
         let some_gadt_type = gadt_to_type(&some_gadt, &context);
         println!("SomeGADT: {}", some_gadt_type.print_to_string());
         let some_gadt_value = builder.build_alloca(some_gadt_type, "some_gadt_value");
-        // let _some_gadt_size = some_gadt_type.size_of().unwrap();
 
         builder.build_return(None);
         module.verify().unwrap();

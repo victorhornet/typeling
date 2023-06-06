@@ -171,3 +171,97 @@ impl GADTConstructorFields {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_gadt_constructor_builder() {
+        use super::*;
+        let constructor = GADTConstructorBuilder::new("A").unit_fields().build();
+        assert_eq!(
+            constructor,
+            GADTConstructor {
+                name: "A".to_owned(),
+                fields: GADTConstructorFields::Unit,
+                size: 64,
+            }
+        );
+        let constructor = GADTConstructorBuilder::new("A")
+            .tuple_fields(&[Type::Int, Type::Float])
+            .build();
+        assert_eq!(
+            constructor,
+            GADTConstructor {
+                name: "A".to_owned(),
+                fields: GADTConstructorFields::Tuple(vec![Type::Int, Type::Float]),
+                size: 128,
+            }
+        );
+        let constructor = GADTConstructorBuilder::new("A")
+            .struct_fields(&[("a", Type::Int), ("b", Type::Float)])
+            .build();
+        assert_eq!(
+            constructor,
+            GADTConstructor {
+                name: "A".to_owned(),
+                fields: GADTConstructorFields::Struct(
+                    vec![("a".to_owned(), Type::Int), ("b".to_owned(), Type::Float)]
+                        .into_iter()
+                        .collect::<HashMap<String, Type>>()
+                ),
+                size: 128,
+            }
+        );
+    }
+
+    #[test]
+    fn test_gadt_builder() {
+        use super::*;
+        let gadt = GADTBuilder::new("A")
+            .generic("a")
+            .generic("b")
+            .unit_constructor("A")
+            .tuple_constructor("B", &[Type::Int, Type::Float])
+            .struct_constructor("C", &[("a", Type::Int), ("b", Type::Float)])
+            .build();
+        assert_eq!(
+            gadt,
+            GADT {
+                name: "A".to_owned(),
+                generics: vec!["a".to_owned(), "b".to_owned()],
+                constructors: vec![
+                    (
+                        "A".to_owned(),
+                        GADTConstructor {
+                            name: "A".to_owned(),
+                            fields: GADTConstructorFields::Unit,
+                            size: 64,
+                        }
+                    ),
+                    (
+                        "B".to_owned(),
+                        GADTConstructor {
+                            name: "B".to_owned(),
+                            fields: GADTConstructorFields::Tuple(vec![Type::Int, Type::Float]),
+                            size: 128,
+                        }
+                    ),
+                    (
+                        "C".to_owned(),
+                        GADTConstructor {
+                            name: "C".to_owned(),
+                            fields: GADTConstructorFields::Struct(
+                                vec![("a".to_owned(), Type::Int), ("b".to_owned(), Type::Float)]
+                                    .into_iter()
+                                    .collect::<HashMap<String, Type>>()
+                            ),
+                            size: 128,
+                        }
+                    ),
+                ]
+                .into_iter()
+                .collect::<HashMap<String, GADTConstructor>>(),
+            }
+        );
+    }
+}
