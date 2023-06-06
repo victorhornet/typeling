@@ -1,10 +1,5 @@
-use crate::ast::*;
-mod codegen;
-mod typecheck;
-pub use codegen::CodeGen;
-pub use typecheck::TypeChecker;
+use crate::{ast::*, type_system::GADT};
 
-use self::typecheck::TypeCheckError;
 #[allow(unused_variables)]
 pub trait Visitor<T> {
     fn visit_file(&mut self, file: &File) -> T {
@@ -18,7 +13,11 @@ pub trait Visitor<T> {
         res
     }
     fn visit_item(&mut self, item: &Item) -> T {
-        unimplemented!()
+        match item {
+            Item::FunctionDecl(function_decl) => self.visit_function_decl(function_decl),
+            Item::TypeDecl(type_decl) => self.visit_type_decl(type_decl),
+            Item::AliasDecl(alias_decl) => self.visit_alias_decl(alias_decl),
+        }
     }
     fn visit_function_decl(&mut self, function_decl: &FunctionDecl) -> T {
         unimplemented!()
@@ -39,7 +38,7 @@ pub trait Visitor<T> {
     fn visit_type(&mut self, type_: &Type) -> T {
         unimplemented!()
     }
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) -> T {
+    fn visit_type_decl(&mut self, type_decl: &GADT) -> T {
         unimplemented!()
     }
     fn visit_type_def(&mut self, type_def: &TypeDef) -> T {
@@ -87,10 +86,16 @@ pub trait Visitor<T> {
         }
     }
     fn visit_if(&mut self, if_: &If) -> T {
-        unimplemented!()
+        let res = self.visit_expr(&if_.condition);
+        self.visit_block(&if_.then_block);
+        if let Some(ref else_block) = if_.else_block {
+            self.visit_block(else_block);
+        };
+        res
     }
     fn visit_while(&mut self, while_: &While) -> T {
-        unimplemented!()
+        self.visit_expr(&while_.condition);
+        self.visit_block(&while_.body)
     }
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> T {
         unimplemented!()
@@ -162,24 +167,15 @@ impl Visitor<()> for SpanPrinter {
             Type::Float => println!("Type: float"),
             Type::Bool => println!("Type: bool"),
             Type::String(_) => println!("Type: string"),
-            Type::Array(element_type) => {
-                println!("Type: array");
-                self.visit_type(element_type);
-            }
-            Type::Function(function_sig) => {
-                println!("Type: function");
-                self.visit_function_sig(function_sig);
-            }
             Type::Ident(ident) => {
-                let ident = slice(&self.input, ident);
                 println!("Type: {}", ident);
             }
+            _ => unimplemented!(),
         }
     }
-    fn visit_type_decl(&mut self, type_decl: &TypeDecl) {
-        let ident = slice(&self.input, &type_decl.name);
+    fn visit_type_decl(&mut self, type_decl: &GADT) {
+        let ident = &type_decl.name;
         println!("Type declaration: {}", ident);
-        self.visit_type_def(&type_decl.def);
     }
     fn visit_type_def(&mut self, type_def: &TypeDef) {
         match type_def {
@@ -267,7 +263,9 @@ impl Visitor<()> for SpanPrinter {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {
         let ident = slice(&self.input, &var_decl.name);
         println!("Var decl: {}", ident);
-        self.visit_type(&var_decl.var_type);
+        if let Some(var_type) = &var_decl.var_type {
+            self.visit_type(var_type);
+        }
         if let Some(value) = &var_decl.value {
             self.visit_expr(value);
         }
@@ -282,9 +280,4 @@ impl Visitor<()> for SpanPrinter {
     fn visit_expr(&mut self, _expr: &Expr) {}
     fn visit_bin_op(&mut self, _binary_op: &BinOp) {}
     fn visit_un_op(&mut self, _unary_op: &UnOp) {}
-}
-
-pub enum CompileError {
-    InvalidType(TypeCheckError),
-    Unimplemented,
 }

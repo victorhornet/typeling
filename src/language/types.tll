@@ -1,0 +1,28 @@
+type Unit1 = Unit1  // `Unit1` type with type constructor `Unit1`
+type Unit2          // shorthand for `type Unit2 = Unit2`
+
+type ZUnit = Z      // `ZUnit` type with type constructor `Z`
+
+type Tuple1 = Tuple1 i64 f64 bool // `Tuple1` sum type with type constructor `Tuple1` and anonymous fields
+type Tuple2 (i64, f64)            // shorthand for `type Tuple2 = Tuple2 i64 f64`
+
+type Struct1 = Struct1 a:i64 b:f64 c:bool d:Unit1 // product type with type constructor `Struct1` and named fields
+type Struct2 { a: i64, b: f64 }                   // shorthand for `type Struct2 = Struct2 a:i64 b:f64`
+
+type Enum1 = A | B i64 | C x:i64 y:y64               // `Enum1` sum type with type constructors `A`, `B` and `C`
+type Enum2 = A | B (i64, f64) | C { x: i64, y: y64 } // alternative notation for `Enum1`
+
+
+type Phantom x = Phantom // `Phantom` type with type constructor `Phantom` and generic parameter `x`
+
+
+type Result O E = Ok O | Err E
+type Option T = Some T | None
+
+fn main() {
+    a: Unit1 = Unit1;
+    b: Tuple1 = Tuple1(1, 2.0, true);
+    c: Struct1 = Struct1 { a: 1, b: 2.0, c: true, d: Unit1 };
+    d: Enum1 = A;
+
+}

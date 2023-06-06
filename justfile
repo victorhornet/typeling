@@ -6,3 +6,6 @@ rustparse SRC:
 
 run SRC:
     cargo run -q -- -i {{SRC}} 
+
+test:
+    cargo test -q -- --nocapture --color always

@@ -7,25 +7,33 @@
 */
 
 /*
-type Test1;
-alias Test10 = Test1;
-type Test2 (i64, i64);
+type Unit1 = Unit1 // unit type
+type Unit2         // shorthand for `type Unit2 = Unit2`
+
+
+type Tuple1 = Tuple1 i64 i64 // (i64, i64) tuple type
+type Tuple2 (i64, i64)       // shorthand for `type Tuple2 = Tuple2 i64 i64`
+
+type GenericTuple1 X Y = GenericTuple1 X Y // generic tuple type
+type GenericTuple2 X Y (X, Y)              // shorthand for `type GenericTuple2 = GenericTuple2 x y`
+
+
+type Struct1 = Struct1 x:i64 y:f64 z:bool // struct type (tuple with named fields)
+type Struct2 { x: i64, y: f64, z: bool, } // shorthand for `type Struct2 = Struct2 x:i64 y:f64 z:bool`
+
+
+type Enum1 = V1             // Unit type constructor
+           | V2 i64 i64     // Tuple type constructor
+           | V3 x:i64 y:i64 // Struct type constructor
+
+type Enum2 = V4 
+           | V5 (i64, i64)         // same as `V2 i64 i64`
+           | V6 { x: i64, y: i64 } // same as `V3 x:i64 y:i64`
+
 */
 
-type StructType {
-    x: i64,
-    y: f64,
-    z: bool,
-}
-
-/*
-type Test4
-    = V1 
-    | V2 
-    | V3 (i64, i64)
-    | V4 { x: i64, y: i64 }
-    ;
-alias Test4 = enumer;
+/*  
+alias AliasType = StructType
 */
 
 fn function1() {
@@ -148,15 +156,31 @@ fn fn_def_test2() -> i64 {
     return 10;
 }
 
+/*
+fn type_inference() {
+    x : = 1; // i64
+    y : = 1.0; // f64
+    z : = true; // bool
+    w : = "hello"; // string
+}
+*/
+
 fn hello() {
     printf("Hello \"world\" \'!\'\n num: %d\n", 1);
     printf("\tthis is a tabbed string\n");
 }
 
+/*
+
+fn pattern_match() {
+    
+}
+
+*/
 
 fn main() -> i64 {
     hello(); 
-    x : i64 = fib_while(50); 
+    x : i64 = fib_while(50);
     check: bool = x == 12586269025;
     printf("fib(50) = %llu (%d)\n", x, check); 
     return 0;
