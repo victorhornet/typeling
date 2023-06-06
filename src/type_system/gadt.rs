@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use crate::ast::Type;
 
@@ -156,12 +156,7 @@ impl GADTConstructorBuilder {
         self
     }
     pub fn struct_fields(mut self, fields: &[(&str, Type)]) -> Self {
-        let fields = fields
-            .to_owned()
-            .into_iter()
-            .map(|(name, ty)| (name.into(), ty))
-            .collect::<HashMap<String, Type>>();
-        self.constructor.fields = GADTConstructorFields::Struct(fields);
+        self.constructor.fields = GADTConstructorFields::from(fields);
         self
     }
     pub fn build(mut self) -> GADTConstructor {
@@ -174,7 +169,37 @@ impl GADTConstructorBuilder {
 pub enum GADTConstructorFields {
     Unit,
     Tuple(Vec<Type>),
-    Struct(HashMap<String, Type>),
+    Struct(Vec<Type>, HashMap<String, usize>),
+}
+
+impl From<HashMap<String, Type>> for GADTConstructorFields {
+    fn from(fields: HashMap<String, Type>) -> Self {
+        let params = fields.values().cloned().collect();
+        let fields = fields
+            .into_iter()
+            .enumerate()
+            .map(|(i, (name, _))| (name, i))
+            .collect();
+        Self::Struct(params, fields)
+    }
+}
+
+impl From<&[(&str, Type)]> for GADTConstructorFields {
+    fn from(fields: &[(&str, Type)]) -> Self {
+        let params = fields.iter().map(|(_, t)| t.clone()).collect();
+        let fields = fields
+            .iter()
+            .enumerate()
+            .map(|(i, (name, _))| (name.to_string(), i))
+            .collect();
+        Self::Struct(params, fields)
+    }
+}
+
+impl From<Vec<Type>> for GADTConstructorFields {
+    fn from(params: Vec<Type>) -> Self {
+        Self::Tuple(params)
+    }
 }
 
 impl GADTConstructorFields {
@@ -182,7 +207,9 @@ impl GADTConstructorFields {
         match self {
             GADTConstructorFields::Unit => 0,
             GADTConstructorFields::Tuple(params) => params.iter().map(size_of).sum::<u64>(),
-            GADTConstructorFields::Struct(fields) => fields.values().map(size_of).sum::<u64>(),
+            GADTConstructorFields::Struct(params, _fields) => {
+                params.iter().map(size_of).sum::<u64>()
+            }
         }
     }
 }
@@ -220,9 +247,11 @@ mod tests {
             GADTConstructor {
                 name: "A".to_owned(),
                 fields: GADTConstructorFields::Struct(
-                    vec![("a".to_owned(), Type::Int), ("b".to_owned(), Type::Float)]
-                        .into_iter()
-                        .collect::<HashMap<String, Type>>()
+                    vec![Type::Int, Type::Float],
+                    vec![("a".to_owned(), 0usize), ("b".to_owned(), 1usize)]
+                        .iter()
+                        .map(|a| a.to_owned())
+                        .collect()
                 ),
                 size: 64 * 3,
             }
@@ -266,9 +295,10 @@ mod tests {
                         GADTConstructor {
                             name: "C".to_owned(),
                             fields: GADTConstructorFields::Struct(
-                                vec![("a".to_owned(), Type::Int), ("b".to_owned(), Type::Float)]
+                                vec![Type::Int, Type::Float],
+                                vec![("a".to_owned(), 0usize), ("b".to_owned(), 1usize)]
                                     .into_iter()
-                                    .collect::<HashMap<String, Type>>()
+                                    .collect::<HashMap<String, usize>>()
                             ),
                             size: 64 * 3,
                         }

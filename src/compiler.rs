@@ -7,7 +7,7 @@ use inkwell::{
 
 use crate::{
     ast::Type,
-    type_system::{TypeCheckError, GADT},
+    type_system::{GADTConstructor, TypeCheckError, GADT},
 };
 
 #[allow(dead_code)]
@@ -73,6 +73,7 @@ pub enum CompileError {
 
 pub struct CompilerContext<'input, 'ctx> {
     pub type_constructors: HashMap<String, GADT>,
+    pub constructor_signatures: HashMap<String, GADTConstructor>,
     pub types: HashMap<String, Type>,
     pub aliases: HashMap<String, String>,
     pub basic_value_stack: Stack<'input, BasicValueEnum<'ctx>>,
@@ -87,6 +88,7 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
             aliases: HashMap::new(),
             basic_value_stack: Stack::new(),
             function_values: HashMap::new(),
+            constructor_signatures: HashMap::new(),
         }
     }
     pub fn add_type_constructor(&mut self, name: &str, gadt: &GADT) {
@@ -94,6 +96,19 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
             panic!("Duplicate constructor name: {}", name);
         }
         self.type_constructors.insert(name.into(), gadt.clone());
+    }
+
+    pub fn add_constructor_signatures(
+        &mut self,
+        constructors: &HashMap<String, crate::type_system::GADTConstructor>,
+    ) {
+        for (name, cons) in constructors.iter() {
+            if self.constructor_signatures.contains_key(name) {
+                panic!("Duplicate constructor name: {}", name);
+            }
+            self.constructor_signatures
+                .insert(name.to_owned(), cons.to_owned());
+        }
     }
 }
 

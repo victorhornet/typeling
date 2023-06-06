@@ -92,10 +92,10 @@ type_constructor -> ParseResult<GADTConstructor>
 
 type_constructor_params -> ParseResult<GADTConstructorFields>
     : anonymous_type_constructor_param_list { 
-        Ok(GADTConstructorFields::Tuple($1?)) 
+        Ok(GADTConstructorFields::from($1?)) 
     }
     | named_type_constructor_param_list { 
-        Ok(GADTConstructorFields::Struct($1?))
+        Ok(GADTConstructorFields::from($1?))
     }
     ;
 

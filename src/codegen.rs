@@ -17,7 +17,8 @@ use lrpar::NonStreamingLexer;
 use crate::{
     ast::*,
     compiler::CompilerContext,
-    type_system::{gadt_to_type, GADT},
+    type_system::{gadt_to_type, GADTConstructorFields, GADT},
+    typeling_y::R_EXPR,
 };
 
 use crate::visitors::Visitor;
@@ -625,19 +626,63 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .left();
                 Ok(res)
             }
-            Expr::Function { .. } => todo!("anon function expr"),
             Expr::ConstructorCall { name, args, .. } => {
                 let constructor_name = self.lexer.span_str(*name);
-                let gadt_name = &self
+
+                let gadt = self
                     .compiler_ctx
                     .type_constructors
                     .get(constructor_name)
-                    .unwrap()
-                    .name;
+                    .expect("constructor must have been defined");
+
+                let gadt_name = &gadt.name;
 
                 let llvm_type = self.llvm_ctx.get_struct_type(gadt_name).unwrap();
 
                 let struct_ptr = self.builder.build_alloca(llvm_type, "gadt");
+
+                match args {
+                    ConstructorCallArgs::Tuple(params) => {
+                        for (i, param) in params.iter().enumerate() {
+                            let param =
+                                self.visit_expr(param)?.expect("expr should return a value");
+                            let ptr = self
+                                .builder
+                                .build_struct_gep(struct_ptr, i as u32, "param")
+                                .expect("type check should have caught this");
+                            self.builder.build_store(ptr, param);
+                        }
+                    }
+                    ConstructorCallArgs::Struct(fields) => {
+                        let constructor_fields = self
+                            .compiler_ctx
+                            .constructor_signatures
+                            .get(constructor_name)
+                            .expect("constructor must have been defined")
+                            .get_fields()
+                            .clone();
+                        match constructor_fields
+                        {
+                            GADTConstructorFields::Struct(_, field_indices) => {
+                                for (key, expr) in fields.iter() {
+                                    let expr_value = self.visit_expr(expr)?.expect("expr should return a value");
+                                    let i = *field_indices.get(key).expect("constructor call field must exist");
+                                    let ptr = self
+                                        .builder
+                                        .build_struct_gep(
+                                            struct_ptr,
+                                            i as u32,
+                                            "field",
+                                        )
+                                        .expect("type check should have caught this");
+                                    self.builder.build_store(ptr, expr_value);
+                                }
+                            }
+                            _ => panic!("constructor must be a struct, type checker should have caught this"),
+                        }
+                    }
+                    ConstructorCallArgs::None => {}
+                }
 
                 Ok(Some(struct_ptr.as_basic_value_enum()))
 
@@ -645,13 +690,16 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
                 // todo!("constructor call expr: set fields of gadt");
             }
+            Expr::Function { .. } => todo!("anon function expr"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
         let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
         for constructor in type_decl.constructors.keys() {
             self.compiler_ctx
-                .add_type_constructor(&constructor, &type_decl)
+                .add_type_constructor(constructor, type_decl);
+            self.compiler_ctx
+                .add_constructor_signatures(&type_decl.constructors);
         }
         Ok(None)
     }
@@ -667,16 +715,11 @@ type CodeGenResult<'a> = Result<Option<BasicValueEnum<'a>>, Box<dyn Error>>;
 
 #[cfg(test)]
 pub mod tests {
-    use std::{collections::HashMap, path::Path};
+    use std::path::Path;
 
     use inkwell::{execution_engine::JitFunction, AddressSpace};
 
-    use crate::{
-        ast::Type,
-        type_system::{
-            GADTBuilder, GADTConstructor, GADTConstructorBuilder, GADTConstructorFields, GADT,
-        },
-    };
+    use crate::{ast::Type, type_system::GADTBuilder};
 
     use crate::type_system::gadt_to_type;
 
@@ -885,7 +928,7 @@ pub mod tests {
             .struct_constructor("Struct", &[("x", Type::Int), ("y", Type::Bool)])
             .build();
         let enum_type = gadt_to_type(&enum_gadt, &context);
-        let enum_value = builder.build_alloca(enum_type, "enum_value");
+        let _enum_value = builder.build_alloca(enum_type, "enum_value");
         let _enum_size = enum_type.size_of().unwrap();
 
         // SomeType = SomeType Enum
@@ -896,7 +939,7 @@ pub mod tests {
 
         let some_gadt_type = gadt_to_type(&some_gadt, &context);
         println!("SomeGADT: {}", some_gadt_type.print_to_string());
-        let some_gadt_value = builder.build_alloca(some_gadt_type, "some_gadt_value");
+        let _some_gadt_value = builder.build_alloca(some_gadt_type, "some_gadt_value");
 
         builder.build_return(None);
         module.verify().unwrap();
@@ -906,7 +949,7 @@ pub mod tests {
 
         unsafe {
             type Main = unsafe extern "C" fn() -> ();
-            let jit_function: JitFunction<Main> =
+            let _jit_function: JitFunction<Main> =
                 execution_engine.get_function("unit_test").unwrap();
             // jit_function.call();
         }
