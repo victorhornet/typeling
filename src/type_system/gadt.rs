@@ -216,6 +216,8 @@ impl GADTConstructorFields {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::ConstructorCallArgs;
+
     #[test]
     fn test_gadt_constructor_builder() {
         use super::*;

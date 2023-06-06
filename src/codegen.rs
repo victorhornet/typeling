@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, path::Path};
 
 // globals definer -> type checker -> code generation
 
@@ -18,7 +18,7 @@ use crate::{
     ast::*,
     compiler::CompilerContext,
     type_system::{gadt_to_type, GADTConstructorFields, GADT},
-    typeling_y::R_EXPR,
+    Args,
 };
 
 use crate::visitors::Visitor;
@@ -59,7 +59,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             current_function: None,
         }
     }
-    pub fn compile(&mut self, file: &File) {
+    pub fn compile(&mut self, file: &File, args: &Args) {
         let execution_engine = self
             .module
             .create_jit_execution_engine(OptimizationLevel::None)
@@ -69,8 +69,18 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.walk_file(file);
 
-        self.module.verify().unwrap();
+        if !args.no_verify {
+            self.module.verify().unwrap();
+        }
 
+        if args.emit_llvm {
+            self.module.print_to_file(Path::new("out.ll")).unwrap();
+            return;
+        }
+
+        if args.show_ir {
+            self.module.print_to_stderr();
+        }
         unsafe {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
@@ -164,8 +174,9 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     self.compiler_ctx.function_values.insert(fn_name, fn_value);
                 }
                 Item::TypeDecl(type_decl) => {
-                    let _type_name = &type_decl.name;
-                    todo!("type decl");
+                    continue;
+                    // let _type_name = &type_decl.name;
+                    // todo!("type decl");
                 }
                 Item::AliasDecl(alias_decl) => {
                     let _alias_name = self.lexer.span_str(alias_decl.name);
@@ -302,13 +313,13 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             panic!("variable already declared")
         }
         // todo: add type inferenece
-        let var_type = match &var_decl.var_type {
+        let var_type: BasicTypeEnum = match &var_decl.var_type {
             Some(Type::Unit) => panic!("cannot declare a variable of type unit"),
-            Some(Type::Int) => BasicTypeEnum::IntType(self.llvm_ctx.i64_type()),
-            Some(Type::Float) => BasicTypeEnum::FloatType(self.llvm_ctx.f64_type()),
-            Some(Type::Bool) => BasicTypeEnum::IntType(self.llvm_ctx.bool_type()),
+            Some(Type::Int) => self.llvm_ctx.i64_type().into(),
+            Some(Type::Float) => self.llvm_ctx.f64_type().into(),
+            Some(Type::Bool) => self.llvm_ctx.bool_type().into(),
             Some(Type::String(_)) => todo!("string type"),
-            Some(Type::Ident(_)) => todo!("custom type"),
+            Some(Type::Ident(name)) => self.llvm_ctx.get_struct_type(name).unwrap().into(),
             Some(t) => unimplemented!("{:?}", t),
             None => todo!("type inference"),
         };

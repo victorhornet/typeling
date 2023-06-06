@@ -93,7 +93,11 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
     }
     pub fn add_type_constructor(&mut self, name: &str, gadt: &GADT) {
         if self.type_constructors.contains_key(name) {
-            panic!("Duplicate constructor name: {}", name);
+            return;
+            // println!(
+            //     "Duplicate constructor {} in {:?}",
+            //     name, self.type_constructors
+            // );
         }
         self.type_constructors.insert(name.into(), gadt.clone());
     }
@@ -104,7 +108,11 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
     ) {
         for (name, cons) in constructors.iter() {
             if self.constructor_signatures.contains_key(name) {
-                panic!("Duplicate constructor name: {}", name);
+                continue;
+                // println!(
+                //     "Duplicate constructor {} in {:?}",
+                //     name, self.constructor_signatures
+                // );
             }
             self.constructor_signatures
                 .insert(name.to_owned(), cons.to_owned());

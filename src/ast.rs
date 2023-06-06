@@ -176,6 +176,18 @@ pub enum ConstructorCallArgs {
     Struct(HashMap<String, Expr>),
 }
 
+impl From<Vec<Expr>> for ConstructorCallArgs {
+    fn from(args: Vec<Expr>) -> Self {
+        Self::Tuple(args)
+    }
+}
+
+impl From<Vec<(String, Expr)>> for ConstructorCallArgs {
+    fn from(args: Vec<(String, Expr)>) -> Self {
+        Self::Struct(args.into_iter().collect())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Expr {
     Int {

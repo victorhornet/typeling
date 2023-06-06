@@ -18,7 +18,7 @@ lrpar_mod!("language/typeling.y");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+pub struct Args {
     #[arg(short, long)]
     input: String,
 
@@ -31,8 +31,14 @@ struct Args {
     #[arg(short, long, default_value = "false")]
     no_codegen: bool,
 
-    #[arg(short, long, default_value = "false")]
+    #[arg(long, default_value = "false")]
     show_ir: bool,
+
+    #[arg(long, default_value = "false")]
+    emit_llvm: bool,
+
+    #[arg(long, default_value = "false")]
+    no_verify: bool,
 
     output: Option<String>,
 }
@@ -83,11 +89,7 @@ fn main() {
 
                 let context = Context::create();
                 let mut codegen = CodeGen::new(&lexer, &context, compiler_ctx);
-                codegen.compile(&file);
-
-                if args.show_ir {
-                    println!("{}", codegen.module.print_to_string().to_string());
-                }
+                codegen.compile(&file, &args);
             }
         }
         None => eprintln!("Parse failed"),

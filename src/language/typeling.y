@@ -309,12 +309,24 @@ array_elem_list -> ParseResult<Vec<Expr>>
 term -> ParseResult<Expr>
     : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
+    | "CONSTRUCT" "IDENT" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::None, span: $span}) }
+    | "CONSTRUCT" "IDENT" "LPAREN" array_elem_list "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
+    | "CONSTRUCT" "IDENT" "LPAREN" construct_type_arg_list_named_elems "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
     | "TRUE" { Ok( Expr::Bool{value: true, span: $span}) }
     | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
     | "LPAREN" expr "RPAREN" { $2 }
+    ;
+
+construct_type_arg_list_named_elems -> ParseResult<Vec<(String, Expr)>>
+    : construct_type_arg_list_named_elem { Ok(vec![$1?]) }
+    | construct_type_arg_list_named_elems "COMMA" construct_type_arg_list_named_elem { flatten($1, $3) }
+    ;
+
+construct_type_arg_list_named_elem -> ParseResult<(String, Expr)>
+    : "IDENT" "ASSIGN" expr { Ok(($lexer.span_str($1?.span()).to_string(), $3?)) }
     ;
 
 

@@ -1,0 +1,9 @@
+type Enum = Unit
+          | Tuple i64 i64
+          | Struct a:i64 b:i64  
+
+fn main() {
+    x: Enum = construct Unit;
+    y: Enum = construct Tuple(1,2);
+    z: Enum = construct Struct(a=1,b=2);
+}

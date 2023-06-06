@@ -9,6 +9,8 @@ print "PRINT"
 type "TYPE"
 alias "ALIAS"
 let "LET"
+construct "CONSTRUCT"
+
 
 [-+]?[0-9]+ "INT_LIT"
 [-+]?[0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*)) "FLOAT_LIT"
