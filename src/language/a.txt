@@ -1,0 +1,2 @@
+`GADT { name: "A", generics: ["a", "b"], constructors: {"A": GADTConstructor { name: "A", fields: Unit, size: 64 }, "B": GADTConstructor { name: "B", fields: Tuple([Int, Float]), size: 192 }, "C": GADTConstructor { name: "C", fields: Struct({"a": Int, "b": Float}), size: 192 } } }`,
+`GADT { name: "A", generics: ["a", "b"], constructors: {"A": GADTConstructor { name: "A", fields: Unit, size: 64 }, "B": GADTConstructor { name: "B", fields: Tuple([Int, Float]), size: 128 }, "C": GADTConstructor { name: "C", fields: Struct({"a": Int, "b": Float}), size: 128 } } }`',

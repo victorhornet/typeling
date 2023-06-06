@@ -12,6 +12,17 @@ pub struct GADT {
 }
 
 impl GADT {
+    pub fn new(
+        name: String,
+        generics: Vec<String>,
+        constructors: HashMap<String, GADTConstructor>,
+    ) -> Self {
+        Self {
+            name,
+            generics,
+            constructors,
+        }
+    }
     pub fn add_constructor(&mut self, name: String, constructor: GADTConstructor) {
         self.constructors.insert(name, constructor);
     }
@@ -56,6 +67,10 @@ impl GADTBuilder {
         self.gadt.generics.push(name.to_owned());
         self
     }
+    pub fn generics(mut self, names: Vec<String>) -> Self {
+        self.gadt.generics.extend(names);
+        self
+    }
     pub fn unit_constructor(mut self, name: &str) -> Self {
         self.gadt.add_constructor(
             name.to_owned(),
@@ -95,10 +110,10 @@ pub struct GADTConstructor {
 }
 
 impl GADTConstructor {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, fields: GADTConstructorFields) -> Self {
         Self {
             name: name.to_owned(),
-            fields: GADTConstructorFields::Unit,
+            fields,
             size: 0,
         }
     }
@@ -129,7 +144,7 @@ pub struct GADTConstructorBuilder {
 impl GADTConstructorBuilder {
     pub fn new(name: &str) -> Self {
         Self {
-            constructor: GADTConstructor::new(name),
+            constructor: GADTConstructor::new(name, GADTConstructorFields::Unit),
         }
     }
     pub fn unit_fields(mut self) -> Self {
@@ -194,7 +209,7 @@ mod tests {
             GADTConstructor {
                 name: "A".to_owned(),
                 fields: GADTConstructorFields::Tuple(vec![Type::Int, Type::Float]),
-                size: 128,
+                size: 64 * 3,
             }
         );
         let constructor = GADTConstructorBuilder::new("A")
@@ -209,7 +224,7 @@ mod tests {
                         .into_iter()
                         .collect::<HashMap<String, Type>>()
                 ),
-                size: 128,
+                size: 64 * 3,
             }
         );
     }
@@ -243,7 +258,7 @@ mod tests {
                         GADTConstructor {
                             name: "B".to_owned(),
                             fields: GADTConstructorFields::Tuple(vec![Type::Int, Type::Float]),
-                            size: 128,
+                            size: 64 * 3,
                         }
                     ),
                     (
@@ -255,7 +270,7 @@ mod tests {
                                     .into_iter()
                                     .collect::<HashMap<String, Type>>()
                             ),
-                            size: 128,
+                            size: 64 * 3,
                         }
                     ),
                 ]

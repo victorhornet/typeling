@@ -37,7 +37,7 @@ type_decl -> ParseResult<GADT>
         let name = $lexer.span_str($2?.span()).to_string();
         let generics = $3?;
         let constructors = $4?;
-        let mut gadt = GADT {name, generics, constructors};
+        let mut gadt = GADT::new(name, generics, constructors);
         gadt.replace_shorthand().map_err(|name| Box::new(ParseError::DuplicateTypeConstructor(name)))?;
         Ok(gadt) 
     }
@@ -62,13 +62,13 @@ type_constructors -> ParseResult<HashMap<String, GADTConstructor>>
     : type_constructor { 
         let mut map = HashMap::new();
         let constructor = $1?;
-        map.insert(constructor.clone().name().to_string(), constructor);
+        map.insert(constructor.clone().get_name().to_string(), constructor);
         Ok(map)
     }
     | type_constructors "PIPE" type_constructor { 
         let mut map = $1?;
         let constructor = $3?;
-        let name = constructor.name().to_string();
+        let name = constructor.get_name().to_string();
         if map.contains_key(&name) {
             return Err(Box::new(ParseError::DuplicateTypeConstructor(name)));
         }
@@ -79,10 +79,7 @@ type_constructors -> ParseResult<HashMap<String, GADTConstructor>>
 
 type_constructor -> ParseResult<GADTConstructor>
     : "IDENT" type_constructor_params { 
-        let mut constructor = $2?;
-        let name = $lexer.span_str($1?.span()).to_string();
-        constructor.set_name(&name);
-        Ok(constructor) 
+        Ok(GADTConstructor::new($lexer.span_str($1?.span()),  $2?)) 
     }
     | "IDENT" shorthand_def { 
         let mut constructor = $2?.get("@").unwrap().clone();
@@ -93,14 +90,12 @@ type_constructor -> ParseResult<GADTConstructor>
     ;
 
 
-type_constructor_params -> ParseResult<GADTConstructor>
+type_constructor_params -> ParseResult<GADTConstructorFields>
     : anonymous_type_constructor_param_list { 
-        let name = "@".to_string();
-        Ok(GADTConstructor::Tuple { name, params: $1?}) 
+        Ok(GADTConstructorFields::Tuple($1?)) 
     }
     | named_type_constructor_param_list { 
-        let name = "@".to_string();
-        Ok(GADTConstructor::Struct { name, fields: $1?})
+        Ok(GADTConstructorFields::Struct($1?))
     }
     ;
 
@@ -130,30 +125,25 @@ named_type_constructor_param_list -> ParseResult<HashMap<String, Type>>
 shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>
     : %empty { 
         let mut map = HashMap::new();
-        let name = "@".to_string();
-        map.insert(name.clone(), GADTConstructor::Unit{name});
+        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").unit_fields().build());
         Ok(map) 
     }
     | "LPAREN" tuple_params "RPAREN" { 
         let mut map = HashMap::new();
-        let name = "@".to_string();
-        map.insert(name.clone(), GADTConstructor::Unit{name});
+        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").unit_fields().build());
         Ok(map) 
     }
     | struct_def { 
         let mut map = HashMap::new();
-        let name = "@".to_string();
-        let mut constructor = $1?;
-        constructor.set_name(&name);
-        map.insert(name.clone(), constructor);
+        map.insert("@".to_owned(), $1?);
         Ok(map) 
     }
     ;
 
 struct_def -> ParseResult<GADTConstructor>
-    : "LBRACE" "RBRACE" { Ok(GADTConstructor::Unit {name: "@".into()}) }
-    | "LBRACE" struct_fields "RBRACE" { Ok(GADTConstructor::Struct{ name: "@".into(), fields: $2? }) }
-    | "LBRACE" struct_fields "COMMA" "RBRACE" { Ok(GADTConstructor::Struct{ name: "@".into(), fields: $2? }) }
+    : "LBRACE" "RBRACE" { Ok(GADTConstructorBuilder::new("@").unit_fields().build()) }
+    | "LBRACE" struct_fields "RBRACE" { Ok(GADTConstructorBuilder::new("@").struct_fields(&$2?).build()) }
+    | "LBRACE" struct_fields "COMMA" "RBRACE" { Ok(GADTConstructorBuilder::new("@").struct_fields(&$2?).build()) }
     ;
 
 tuple_params -> ParseResult<Vec<Type>>
@@ -161,22 +151,13 @@ tuple_params -> ParseResult<Vec<Type>>
     | tuple_params "COMMA" type { flatten($1, $3) }
     ;
 
-struct_fields -> ParseResult<HashMap<String, Type>>
-    : "IDENT" "COLON" type { 
-        let mut map = HashMap::new();
-        let name = $lexer.span_str($1?.span()).to_string();
-        map.insert(name, $3?);
-        Ok(map) 
-    }
-    | struct_fields "COMMA" "IDENT" "COLON" type {
-        let mut map = $1?;
-        let name = $lexer.span_str($3?.span()).to_string();
-        if map.contains_key(&name) {
-            return Err(Box::new(ParseError::DuplicateTypeConstructorParam(name)));
-        }
-        map.insert(name, $5?);
-        Ok(map)
-    }
+struct_fields -> ParseResult<Vec<(&'input str, Type)>>
+    : named_field { Ok(vec![$1?]) }
+    | struct_fields "COMMA" named_field { flatten($1, $3) }
+    ;
+
+named_field -> ParseResult<(&'input str, Type)>
+    : "IDENT" "COLON" type { Ok(($lexer.span_str($1?.span()), $3?)) }
     ;
 
 function_decl -> ParseResult<FunctionDecl>
@@ -345,7 +326,7 @@ unary_op -> ParseResult<UnOp>
 %%
 
 use crate::ast::*;
-use crate::type_system::{GADT, GADTConstructor};
+use crate::type_system::{GADT, GADTConstructor, GADTConstructorBuilder, GADTConstructorFields};
 use std::collections::HashMap;
 use core::fmt::{self, Display, Formatter};
 use std::error::Error;
