@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use crate::ast::Type;
 
+use super::size_of;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct GADT {
     pub name: String,
@@ -13,9 +15,6 @@ impl GADT {
     pub fn add_constructor(&mut self, name: String, constructor: GADTConstructor) {
         self.constructors.insert(name, constructor);
     }
-}
-
-impl GADT {
     pub fn replace_shorthand(&mut self) -> Result<(), String> {
         if let Some(ref mut shorthand_constructor) = self.constructors.remove("@") {
             if self.constructors.contains_key(&self.name) {
@@ -39,56 +38,136 @@ impl GADT {
     }
 }
 
+pub struct GADTBuilder {
+    gadt: GADT,
+}
+
+impl GADTBuilder {
+    pub fn new(name: &str) -> Self {
+        Self {
+            gadt: GADT {
+                name: name.to_owned(),
+                generics: vec![],
+                constructors: HashMap::new(),
+            },
+        }
+    }
+    pub fn generic(mut self, name: &str) -> Self {
+        self.gadt.generics.push(name.to_owned());
+        self
+    }
+    pub fn unit_constructor(mut self, name: &str) -> Self {
+        self.gadt.add_constructor(
+            name.to_owned(),
+            GADTConstructorBuilder::new(name).unit_fields().build(),
+        );
+        self
+    }
+    pub fn tuple_constructor(mut self, name: &str, params: &[Type]) -> Self {
+        self.gadt.add_constructor(
+            name.to_owned(),
+            GADTConstructorBuilder::new(name)
+                .tuple_fields(params)
+                .build(),
+        );
+        self
+    }
+    pub fn struct_constructor(mut self, name: &str, fields: &[(&str, Type)]) -> Self {
+        self.gadt.add_constructor(
+            name.to_owned(),
+            GADTConstructorBuilder::new(name)
+                .struct_fields(fields)
+                .build(),
+        );
+        self
+    }
+    pub fn build(mut self) -> GADT {
+        self.gadt.replace_shorthand().unwrap();
+        self.gadt
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
-pub enum GADTConstructor {
-    Unit {
-        name: String,
-    },
-    Tuple {
-        name: String,
-        params: Vec<Type>,
-    },
-    Struct {
-        name: String,
-        fields: HashMap<String, Type>,
-    },
+pub struct GADTConstructor {
+    name: String,
+    fields: GADTConstructorFields,
+    size: u64,
 }
 
 impl GADTConstructor {
-    pub fn name(&self) -> &str {
-        match self {
-            GADTConstructor::Unit { name } => name,
-            GADTConstructor::Tuple { name, .. } => name,
-            GADTConstructor::Struct { name, .. } => name,
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            fields: GADTConstructorFields::Unit,
+            size: 0,
         }
+    }
+    pub fn llvm_name(&self) -> String {
+        "constructor_".to_string() + self.name.as_str()
+    }
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
     pub fn set_name(&mut self, name: &str) {
-        match self {
-            GADTConstructor::Unit { name: n } => *n = name.into(),
-            GADTConstructor::Tuple { name: n, .. } => *n = name.into(),
-            GADTConstructor::Struct { name: n, .. } => *n = name.into(),
-        }
+        self.name = name.to_owned();
     }
     pub fn get_size(&self) -> u64 {
-        match self {
-            GADTConstructor::Unit { .. } => 64,
-            GADTConstructor::Tuple { params, .. } => {
-                64 + params.iter().map(Self::size_of).sum::<u64>()
-            }
-            GADTConstructor::Struct { fields, .. } => {
-                64 + fields.values().map(Self::size_of).sum::<u64>()
-            }
+        self.size
+    }
+    fn compute_size(&mut self) {
+        self.size = self.fields.get_size() + 64;
+    }
+    pub fn get_fields(&self) -> &GADTConstructorFields {
+        &self.fields
+    }
+}
+
+pub struct GADTConstructorBuilder {
+    constructor: GADTConstructor,
+}
+
+impl GADTConstructorBuilder {
+    pub fn new(name: &str) -> Self {
+        Self {
+            constructor: GADTConstructor::new(name),
         }
     }
-    fn size_of(ty: &Type) -> u64 {
-        match ty {
-            Type::Int => 64,
-            Type::Float => 64,
-            Type::Bool => 1,
-            Type::String(size) => *size as u64 * 8,
-            Type::Unit => 64,
-            Type::Ident(_) => 64,
-            Type::GADT(gadt) => gadt.get_size(),
+    pub fn unit_fields(mut self) -> Self {
+        self.constructor.fields = GADTConstructorFields::Unit;
+        self
+    }
+    pub fn tuple_fields(mut self, params: &[Type]) -> Self {
+        self.constructor.fields = GADTConstructorFields::Tuple(params.to_owned());
+        self
+    }
+    pub fn struct_fields(mut self, fields: &[(&str, Type)]) -> Self {
+        let fields = fields
+            .to_owned()
+            .into_iter()
+            .map(|(name, ty)| (name.into(), ty))
+            .collect::<HashMap<String, Type>>();
+        self.constructor.fields = GADTConstructorFields::Struct(fields);
+        self
+    }
+    pub fn build(mut self) -> GADTConstructor {
+        self.constructor.compute_size();
+        self.constructor
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum GADTConstructorFields {
+    Unit,
+    Tuple(Vec<Type>),
+    Struct(HashMap<String, Type>),
+}
+
+impl GADTConstructorFields {
+    pub fn get_size(&self) -> u64 {
+        match self {
+            GADTConstructorFields::Unit => 0,
+            GADTConstructorFields::Tuple(params) => params.iter().map(size_of).sum::<u64>(),
+            GADTConstructorFields::Struct(fields) => fields.values().map(size_of).sum::<u64>(),
         }
     }
 }

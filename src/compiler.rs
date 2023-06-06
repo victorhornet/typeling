@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use inkwell::values::{BasicValueEnum, FunctionValue};
+use inkwell::{
+    types::StructType,
+    values::{BasicValueEnum, FunctionValue},
+};
 
 use crate::{
     ast::Type,

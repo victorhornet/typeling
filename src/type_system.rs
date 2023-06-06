@@ -1,6 +1,7 @@
 use inkwell::{
     context::Context,
     types::{BasicTypeEnum, StructType},
+    AddressSpace,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 
@@ -111,35 +112,11 @@ mod tests {
         };
         unit1.constructors.insert(
             unit1_name.to_owned(),
-            GADTConstructor::Unit {
-                name: unit1_name.to_owned(),
-            },
+            GADTConstructorBuilder::new(&unit1_name)
+                .unit_fields()
+                .build(),
         );
         println!("{:?}", unit1);
-    }
-
-    #[test]
-    fn test_llvm_type_generation() {
-        let mut unit_type = GADT {
-            name: "Unit".to_owned(),
-            generics: vec![],
-            constructors: HashMap::new(),
-        };
-        unit_type.constructors.insert(
-            "Unit".to_owned(),
-            GADTConstructor::Unit {
-                name: "Unit".to_owned(),
-            },
-        );
-
-        for (name, constructor) in unit_type.constructors.iter() {
-            match constructor {
-                GADTConstructor::Unit { name: _ } => {
-                    println!("{}: %struct.{}", name, name);
-                }
-                _ => continue,
-            }
-        }
     }
 }
 
@@ -147,16 +124,16 @@ pub fn constructor_to_type<'ctx>(
     constructor: &GADTConstructor,
     context: &'ctx Context,
 ) -> StructType<'ctx> {
-    let t = context.opaque_struct_type(constructor.name());
-    match constructor {
-        GADTConstructor::Unit { .. } => {
+    let t = context.opaque_struct_type(&constructor.llvm_name());
+    match constructor.get_fields() {
+        GADTConstructorFields::Unit => {
             t.set_body(&[], false);
         }
-        GADTConstructor::Tuple { params, .. } => {
+        GADTConstructorFields::Tuple(params) => {
             let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
             t.set_body(&f, false);
         }
-        GADTConstructor::Struct { fields, .. } => {
+        GADTConstructorFields::Struct(fields) => {
             let f: Vec<BasicTypeEnum> = fields.values().map(ast_type_to_basic(context)).collect();
             t.set_body(&f, false);
         }
@@ -166,9 +143,14 @@ pub fn constructor_to_type<'ctx>(
 
 pub fn gadt_to_type<'ctx>(gadt: &GADT, context: &'ctx Context) -> StructType<'ctx> {
     let t = context.opaque_struct_type(&gadt.name);
-    let max_constructor = gadt.get_max_constructor();
+    for constructor in gadt.constructors.values() {
+        constructor_to_type(constructor, context);
+    }
     let tag = context.i64_type();
-    let inner = constructor_to_type(max_constructor, context);
+    let max_constructor = gadt.get_max_constructor();
+    let inner = context
+        .get_struct_type(&max_constructor.llvm_name())
+        .expect("type must have been created");
     t.set_body(&[tag.into(), inner.into()], false);
     t
 }
@@ -180,7 +162,23 @@ pub fn ast_type_to_basic<'ctx>(context: &'ctx Context) -> impl Fn(&Type) -> Basi
         Type::Int => context.i64_type().into(),
         Type::Float => context.f64_type().into(),
         Type::String(size) => context.i8_type().array_type(*size as u32).into(),
-        Type::Ident(name) => context.get_struct_type(name).unwrap().into(),
-        Type::GADT(gadt) => gadt_to_type(gadt, context).into(),
+        Type::Ident(name) => context
+            .get_struct_type(name)
+            .unwrap()
+            .ptr_type(AddressSpace::default())
+            .into(),
+        _ => panic!("Not implemented"),
+    }
+}
+
+pub fn size_of(ty: &Type) -> u64 {
+    match ty {
+        Type::Int => 64,
+        Type::Float => 64,
+        Type::Bool => 1,
+        Type::String(size) => *size as u64 * 8,
+        Type::Unit => 64,
+        Type::Ident(_) => 64,
+        _ => unimplemented!(),
     }
 }

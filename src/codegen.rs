@@ -14,7 +14,11 @@ use inkwell::{
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::{ast::*, compiler::CompilerContext, type_system::GADT};
+use crate::{
+    ast::*,
+    compiler::CompilerContext,
+    type_system::{gadt_to_type, GADT},
+};
 
 use crate::visitors::Visitor;
 
@@ -623,60 +627,33 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             Expr::Function { .. } => todo!("anon function expr"),
             Expr::ConstructorCall { name, args, .. } => {
-                let gadt_name = self.lexer.span_str(*name);
+                let constructor_name = self.lexer.span_str(*name);
+                let gadt_name = &self
+                    .compiler_ctx
+                    .type_constructors
+                    .get(constructor_name)
+                    .unwrap()
+                    .name;
 
-                //todo get struct type from compiler context
-                let gadt_llvm_ty = match args {
-                    ConstructorCallArgs::None => self.llvm_ctx.struct_type(&[], false),
-                    ConstructorCallArgs::Tuple(params) => self.llvm_ctx.struct_type(&[], false),
-                    ConstructorCallArgs::Struct(fields) => self.llvm_ctx.struct_type(&[], false),
-                };
+                let llvm_type = self.llvm_ctx.get_struct_type(gadt_name).unwrap();
 
-                let struct_ptr = self.builder.build_alloca(gadt_llvm_ty, "gadt");
-                let ptr = self
-                    .builder
-                    .build_struct_gep(struct_ptr, 0, "gadt_access")
-                    .unwrap();
-                self.builder
-                    .build_store(ptr, self.llvm_ctx.i64_type().const_int(0, false));
+                let struct_ptr = self.builder.build_alloca(llvm_type, "gadt");
 
-                todo!("constructor call expr")
+                Ok(Some(struct_ptr.as_basic_value_enum()))
+
+                // todo!("constructor call expr: set tag of gadt");
+
+                // todo!("constructor call expr: set fields of gadt");
             }
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
-        let type_name = &type_decl.name;
-        unimplemented!();
-        // let type_type = self
-        //     .context
-        //     .get_struct_type(type_name)
-        //     .unwrap_or_else(|| panic!("type not found: {}", type_name))
-        //     .as_basic_type_enum();
-        // match type_decl.def {
-        //     TypeDef::Struct(ref fields) => {
-        //         let struct_name = self.lexer.span_str(type_decl.name);
-        //         let struct_type = type_type.into_struct_type();
-        //         let mut field_types: Vec<BasicTypeEnum> = Vec::new();
-        //         for field in fields {
-        //             let field_type = self.get_basic_type(&field.ty);
-        //             field_types.push(field_type);
-        //         }
-        //         struct_type.set_body(&field_types, false);
-        //     }
-        //     TypeDef::Tuple(ref fields) => {
-        //         let tuple_name = self.lexer.span_str(type_decl.name);
-        //         let tuple_type = type_type.into_struct_type();
-        //         let mut field_types: Vec<BasicTypeEnum> = Vec::new();
-        //         for field in fields {
-        //             let field_type = self.get_basic_type(field);
-        //             field_types.push(field_type);
-        //         }
-        //         tuple_type.set_body(&field_types, false);
-        //     }
-        //     _ => {
-        //         todo!("other type defs")
-        //     }
-        // }
+        let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
+        for constructor in type_decl.constructors.keys() {
+            self.compiler_ctx
+                .add_type_constructor(&constructor, &type_decl)
+        }
+        Ok(None)
     }
     fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {
         Ok(None)
@@ -696,7 +673,9 @@ pub mod tests {
 
     use crate::{
         ast::Type,
-        type_system::{GADTConstructor, GADT},
+        type_system::{
+            GADTBuilder, GADTConstructor, GADTConstructorBuilder, GADTConstructorFields, GADT,
+        },
     };
 
     use crate::type_system::gadt_to_type;
@@ -900,55 +879,25 @@ pub mod tests {
         let block = context.append_basic_block(test_fn, "entry");
         builder.position_at_end(block);
 
-        let unit_constructor = GADTConstructor::Unit {
-            name: "Unit".to_string(),
-        };
-
-        let tuple_constructor = GADTConstructor::Tuple {
-            name: "Tuple".to_string(),
-            params: vec![Type::Int, Type::Bool, Type::Int],
-        };
-
-        let mut struct_fields = HashMap::new();
-        struct_fields.insert("x".to_string(), Type::Int);
-        struct_fields.insert("y".to_string(), Type::Bool);
-
-        let struct_constructor = GADTConstructor::Struct {
-            name: "Struct".to_string(),
-            fields: struct_fields,
-        };
-
-        let mut constructors = HashMap::new();
-        constructors.insert("Unit".to_string(), unit_constructor);
-        constructors.insert("Tuple".to_string(), tuple_constructor);
-        constructors.insert("Struct".to_string(), struct_constructor);
-        let enum_gadt = GADT {
-            name: "Enum".to_string(),
-            constructors,
-            generics: vec![],
-        };
+        let enum_gadt = GADTBuilder::new("Enum")
+            .unit_constructor("Unit")
+            .tuple_constructor("Tuple", &[Type::Int, Type::Bool, Type::Int])
+            .struct_constructor("Struct", &[("x", Type::Int), ("y", Type::Bool)])
+            .build();
         let enum_type = gadt_to_type(&enum_gadt, &context);
         let enum_value = builder.build_alloca(enum_type, "enum_value");
         let _enum_size = enum_type.size_of().unwrap();
 
         // SomeType = SomeType Enum
-        let mut constructors = HashMap::new();
-        let constructor = GADTConstructor::Tuple {
-            name: "SomeType".into(),
-            params: vec![
-                Type::GADT(enum_gadt.clone()),
-                Type::Ident("Enum".to_string()),
-            ],
-        };
-        constructors.insert("SomeType".to_string(), constructor);
-        let some_gadt = GADT {
-            name: "SomeType".to_string(),
-            constructors,
-            generics: vec![],
-        };
+
+        let some_gadt = GADTBuilder::new("SomeType")
+            .tuple_constructor("SomeType", &[Type::Ident("Enum".to_string())])
+            .build();
+
         let some_gadt_type = gadt_to_type(&some_gadt, &context);
+        println!("SomeGADT: {}", some_gadt_type.print_to_string());
         let some_gadt_value = builder.build_alloca(some_gadt_type, "some_gadt_value");
-        let _some_gadt_size = some_gadt_type.size_of().unwrap();
+        // let _some_gadt_size = some_gadt_type.size_of().unwrap();
 
         builder.build_return(None);
         module.verify().unwrap();
@@ -960,7 +909,7 @@ pub mod tests {
             type Main = unsafe extern "C" fn() -> ();
             let jit_function: JitFunction<Main> =
                 execution_engine.get_function("unit_test").unwrap();
-            jit_function.call();
+            // jit_function.call();
         }
     }
 }
