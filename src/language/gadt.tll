@@ -1,9 +1,13 @@
-type Enum = Unit
-          | Struct a:i64 b:i64  
+type Enum = A
+          | B i64
+          | C a:i64 b:i64  
 
 type Tuple = Tuple i64 i64
 
-fn main() {
-    x: Enum = construct Unit;
+fn main() -> i64 {
+    a : Enum = construct A;
+    b : Enum = construct B(1);
+    c : Enum = construct C(10,20);
     y: Tuple = construct Tuple(1,2);
+    return 0;
 }

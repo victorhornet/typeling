@@ -13,3 +13,5 @@ entry:
   %some_gadt_value = alloca %SomeType, align 8
   ret void
 }
+
+; bitcast %union.vals* %inner_ptr to %my_struct*

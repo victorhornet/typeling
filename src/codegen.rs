@@ -60,11 +60,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
     pub fn compile(&mut self, file: &File, args: &Args) {
-        let execution_engine = self
-            .module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .unwrap();
-
         self.define_items(file);
 
         self.walk_file(file);
@@ -81,11 +76,17 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         if args.show_ir {
             self.module.print_to_stderr();
         }
+
+        let execution_engine = self
+            .module
+            .create_jit_execution_engine(OptimizationLevel::Aggressive)
+            .unwrap();
+
         unsafe {
             type Main = unsafe extern "C" fn() -> i64;
             let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
-            let _res = jit_function.call();
-            // println!("Returned from main: {}", res)
+            let res = jit_function.call();
+            println!("Returned from main: {}", res)
         }
     }
 
@@ -640,6 +641,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Expr::ConstructorCall { name, args, .. } => {
                 let constructor_name = self.lexer.span_str(*name);
 
+                let llvm_constructor_name = "constructor_".to_owned() + constructor_name;
+
                 let gadt = self
                     .compiler_ctx
                     .type_constructors
@@ -648,17 +651,26 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
                 let gadt_name = &gadt.name;
 
-                let llvm_type = self.llvm_ctx.get_struct_type(gadt_name).unwrap();
-
-                let struct_ptr = self.builder.build_alloca(llvm_type, "gadt");
+                let llvm_struct_type = self.llvm_ctx.get_struct_type(gadt_name).unwrap();
+                let llvm_inner_type = self
+                    .llvm_ctx
+                    .get_struct_type(&llvm_constructor_name)
+                    .unwrap();
+                let llvm_inner_ptr_type = llvm_inner_type.ptr_type(AddressSpace::default());
+                let struct_ptr = self.builder.build_alloca(llvm_struct_type, "gadt");
                 let tag_ptr = self
                     .builder
                     .build_struct_gep(struct_ptr, 0, "tag_ptr")
                     .unwrap(); //todo set tag of struct
+                let temp_inner_ptr = self
+                    .builder
+                    .build_struct_gep(struct_ptr, 1, "temp_inner_ptr")
+                    .unwrap();
+
                 let inner_ptr = self
                     .builder
-                    .build_struct_gep(struct_ptr, 1, "inner_ptr")
-                    .unwrap();
+                    .build_bitcast(temp_inner_ptr, llvm_inner_ptr_type, "inner_ptr")
+                    .into_pointer_value();
 
                 match args {
                     ConstructorCallArgs::Tuple(params) => {
