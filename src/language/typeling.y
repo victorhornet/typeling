@@ -6,6 +6,7 @@
 %nonassoc "EQ" "NEQ" "LT" "GT" "LTE" "GTE"
 %left "PLUS" "MINUS"
 %left "TIMES" "DIVIDE" "MOD"
+%left "DOT"
 %nonassoc "NOT" 
 
 
@@ -270,7 +271,13 @@ expr -> ParseResult<Expr>
     | expr "GT" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gt($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GT"
     | expr "GTE" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gte($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GTE"
     | expr "OR" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Or($2?.span()), rhs: Box::new($3?), span: $span})} %prec "OR"
+    | member_access { $1 }
     | factor { $1 }
+    ;
+
+member_access -> ParseResult<Expr>
+    : expr "DOT" "IDENT" { Ok(todo!("member access: ident")) } %prec "DOT"
+    | expr "DOT" "INT_LIT" { Ok(todo!("member access: index")) } %prec "DOT"
     ;
 
 factor -> ParseResult<Expr>
