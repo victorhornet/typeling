@@ -47,6 +47,7 @@ false "FALSE"
 \[ "LBRACKET"
 \] "RBRACKET"
 \, "COMMA"
+\. "DOT"
 
 i64 "INT"
 f64 "FLOAT"

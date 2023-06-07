@@ -104,22 +104,9 @@ anonymous_type_constructor_param_list -> ParseResult<Vec<Type>>
     | anonymous_type_constructor_param_list type { flatten($1, $2) }
     ;
 
-named_type_constructor_param_list -> ParseResult<HashMap<String, Type>>
-    : "IDENT" "COLON" type { 
-        let mut map = HashMap::new();
-        let name = $lexer.span_str($1?.span()).to_string();
-        map.insert(name, $3?);
-        Ok(map)
-    }
-    | named_type_constructor_param_list "IDENT" "COLON" type { 
-        let mut map = $1?;
-        let name = $lexer.span_str($2?.span()).to_string();
-        if map.contains_key(&name) {
-            return Err(Box::new(ParseError::DuplicateTypeConstructorParam(name)));
-        }
-        map.insert(name, $4?);
-        Ok(map)
-    }
+named_type_constructor_param_list -> ParseResult<Vec<(&'input str, Type)>>
+    : named_field { Ok(vec![$1?]) }
+    | named_type_constructor_param_list named_field { flatten($1, $2) }
     ;
 
 shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>

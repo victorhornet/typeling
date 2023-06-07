@@ -174,6 +174,7 @@ pub enum GADTConstructorFields {
     Struct(Vec<Type>, HashMap<String, usize>),
 }
 
+//todo: bad implementation, maybe ill remove it later
 impl From<HashMap<String, Type>> for GADTConstructorFields {
     fn from(fields: HashMap<String, Type>) -> Self {
         let params = fields.values().cloned().collect();
@@ -193,6 +194,30 @@ impl From<&[(&str, Type)]> for GADTConstructorFields {
             .iter()
             .enumerate()
             .map(|(i, (name, _))| (name.to_string(), i))
+            .collect();
+        Self::Struct(params, fields)
+    }
+}
+
+impl From<Vec<(&str, Type)>> for GADTConstructorFields {
+    fn from(fields: Vec<(&str, Type)>) -> Self {
+        let params = fields.iter().map(|(_, t)| t.clone()).collect();
+        let fields = fields
+            .iter()
+            .enumerate()
+            .map(|(i, (name, _))| (name.to_string(), i))
+            .collect();
+        Self::Struct(params, fields)
+    }
+}
+
+impl From<Vec<(String, Type)>> for GADTConstructorFields {
+    fn from(fields: Vec<(String, Type)>) -> Self {
+        let params = fields.iter().map(|(_, t)| t.clone()).collect();
+        let fields = fields
+            .into_iter()
+            .enumerate()
+            .map(|(i, (name, _))| (name, i))
             .collect();
         Self::Struct(params, fields)
     }
