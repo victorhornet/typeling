@@ -117,20 +117,26 @@ impl<'lexer, 'input> Visitor<TCResult> for TypeChecker<'lexer, 'input> {
         let expr_type = self
             .visit_expr(&assign.value)?
             .expect("expr must have a type");
-        let var_type = self
-            .vars
-            .get(self.lexer.span_str(assign.name))
-            .ok_or(TypeCheckError::UndefinedVariable(
-                self.lexer.span_str(assign.name).to_string(),
-            ))?
-            .clone();
-        if expr_type != var_type {
-            return Err(TypeCheckError::AssignTypeMismatch {
-                expected: var_type,
-                found: expr_type,
-            });
+        match assign.target.clone() {
+            Expr::Var { name, .. } => {
+                let var_type = self
+                    .vars
+                    .get(self.lexer.span_str(name))
+                    .ok_or(TypeCheckError::UndefinedVariable(
+                        self.lexer.span_str(name).to_string(),
+                    ))?
+                    .clone();
+                if expr_type != var_type {
+                    return Err(TypeCheckError::AssignTypeMismatch {
+                        expected: var_type,
+                        found: expr_type,
+                    });
+                }
+                Ok(None)
+            }
+            Expr::MemberAccess { expr, member, .. } => todo!("member access assign"),
+            _ => Err(TypeCheckError::AssignToNonVar(assign.span)),
         }
-        Ok(None)
     }
     fn visit_expr(&mut self, expr: &Expr) -> TCResult {
         match expr {
@@ -317,6 +323,7 @@ pub enum TypeCheckError {
     UndefinedVariable(String),
     UndefinedFunction(String),
     Unimplemented,
+    AssignToNonVar(cfgrammar::Span),
 }
 
 #[cfg(test)]

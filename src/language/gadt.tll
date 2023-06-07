@@ -5,16 +5,24 @@ type Enum = A
 type Tuple = Tuple i64 i64
 
 fn main() -> i64 {
-    a : Enum = construct A;
+    /*a : Enum = construct A;
     b : Enum = construct B(1);
+*/
 
-    c : Enum = construct C(b=20, a=10); // use named constructor, can be in any order
-    d : Enum = construct C(10, 20);    // use unnamed constructor, must be in order 
+    c : Enum = construct C(b=20, a=10); // named constructors can be in any order
+
+/*    
+    d : Enum = construct C(10, 20);     // unnamed constructor must be in order 
 
 
     x : i64 = c.0;
     y : i64 = c.1;
+    z : i64 = x + y;
+    z = z + y;
+    */
+    z : i64 = 0;
+    z = c.0;
 
-    return x + y;
+    return c.0 + c.1 + z;
 }
 

@@ -157,7 +157,7 @@ pub struct VarDecl {
 
 #[derive(Debug, Clone)]
 pub struct Assign {
-    pub name: Span,
+    pub target: Expr,
     pub value: Expr,
     pub span: Span,
 }

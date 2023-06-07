@@ -230,7 +230,7 @@ var_decl -> ParseResult<VarDecl>
     ;
 
 assign_stmt -> ParseResult<Assign>
-    : "IDENT" "ASSIGN" expr "SEMICOLON" { Ok(Assign {name: $1?.span(), value: $3?, span: $span}) }
+    : assignable_expr "ASSIGN" expr "SEMICOLON" { Ok(Assign {target: $1?, value: $3?, span: $span}) }
     ;
 
 type -> ParseResult<Type>
@@ -271,19 +271,23 @@ expr -> ParseResult<Expr>
     | expr "GT" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gt($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GT"
     | expr "GTE" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gte($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GTE"
     | expr "OR" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Or($2?.span()), rhs: Box::new($3?), span: $span})} %prec "OR"
-    | member_access { $1 }
     | factor { $1 }
     ;
 
 member_access -> ParseResult<Expr>
-    : expr "DOT" "IDENT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Field($3?.span()), span: $span}) } %prec "DOT"
-    | expr "DOT" "INT_LIT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Index($3?.span()), span: $span}) } %prec "DOT"
+    : assignable_expr "DOT" "IDENT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Field($3?.span()), span: $span}) } %prec "DOT"
+    | assignable_expr "DOT" "INT_LIT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Index($3?.span()), span: $span}) } %prec "DOT"
     ;
 
 factor -> ParseResult<Expr>
     : unary_op term { Ok(Expr::UnOp{op: $1?, expr: Box::new($2?), span: $span}) }
-    | array { $1 }
     | term { $1 }
+    ;
+
+assignable_expr -> ParseResult<Expr>
+    : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
+    | member_access { $1 }
+    | array { $1 }
     ;
 
 array -> ParseResult<Expr>
@@ -301,7 +305,7 @@ array_elem_list -> ParseResult<Vec<Expr>>
     ;
 
 term -> ParseResult<Expr>
-    : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
+    : assignable_expr { $1 }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
     | "CONSTRUCT" "IDENT" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::None, span: $span}) }
     | "CONSTRUCT" "IDENT" "LPAREN" array_elem_list "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
@@ -326,7 +330,7 @@ construct_type_arg_list_named_elem -> ParseResult<(String, Expr)>
 
 unary_op -> ParseResult<UnOp>
     : "MINUS" { Ok(UnOp::Neg($span)) }
-    | "NOT" { Ok(UnOp::Not($span)) }
+    | "NOT" { Ok(UnOp::Not($span)) } 
     ;
 
 %%

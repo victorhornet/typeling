@@ -295,24 +295,37 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         }
     }
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
-        let var_name = self.lexer.span_str(assign.name);
-        let var = self
-            .compiler_ctx
-            .basic_value_stack
-            .get(var_name)
-            .unwrap_or_else(|| panic!("variable {var_name} not found"));
+        //todo change this
         let var_value = self
-            .read_expr_value(&assign.value)?
+            .visit_expr(&assign.value)?
             .expect("expr must return a value");
-
         let val = self.load_ptr_or_read(var_value);
 
-        if var.is_pointer_value() {
-            self.builder.build_store(var.into_pointer_value(), val);
-        } else {
-            self.compiler_ctx.basic_value_stack.insert(var_name, val);
+        match assign.target.clone() {
+            Expr::Var { name, .. } => {
+                let var_name = self.lexer.span_str(name);
+                let var = self
+                    .compiler_ctx
+                    .basic_value_stack
+                    .get(var_name)
+                    .unwrap_or_else(|| panic!("variable {var_name} not found"));
+
+                if var.is_pointer_value() {
+                    // if var_value.is_pointer_value() {
+                    //     self.compiler_ctx
+                    //         .basic_value_stack
+                    //         .insert(var_name, var_value);
+                    // } else {
+                    self.builder.build_store(var.into_pointer_value(), val);
+                    //}
+                } else {
+                    self.compiler_ctx.basic_value_stack.insert(var_name, val);
+                };
+                Ok(None)
+            }
+            Expr::MemberAccess { expr, member, .. } => todo!("member access assign"),
+            _ => panic!("assign target not supported"),
         }
-        Ok(None)
     }
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
@@ -771,7 +784,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             .builder
                             .build_struct_gep(temp_inner_ptr, index, "member_access")
                             .unwrap();
-                        let value = self.builder.build_load(value, "value");
                         Ok(Some(value.as_basic_value_enum()))
                     }
                 }
