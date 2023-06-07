@@ -90,6 +90,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
 
+    fn load_ptr_or_read(&self, var: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
+        if var.is_pointer_value() {
+            let ptr = var.into_pointer_value();
+            self.builder.build_load(ptr, "load")
+        } else {
+            var
+        }
+    }
+
     fn _build_sizeof(&self, t: &dyn BasicType<'ctx>) -> IntValue<'ctx> {
         unsafe {
             let ptr = t.ptr_type(AddressSpace::default()).const_null();
@@ -118,6 +127,12 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             self.builder
                 .build_ptr_to_int(offset2, self.llvm_ctx.i32_type(), "offset_int")
         }
+    }
+
+    fn read_expr_value(&mut self, expr: &Expr) -> CodeGenResult<'ctx> {
+        let op = self.visit_expr(expr)?;
+        let res = op.map(|val| self.load_ptr_or_read(val));
+        Ok(res)
     }
 
     fn define_items(&mut self, file: &File) {
@@ -270,7 +285,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     fn visit_statement(&mut self, statement: &Statement) -> CodeGenResult<'ctx> {
         match statement {
             Statement::Return(return_) => self.visit_return(return_),
-            Statement::Expr(expr) => self.visit_expr(expr),
+            Statement::Expr(expr) => self.read_expr_value(expr),
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
             Statement::Block(block) => self.visit_block(block),
@@ -287,16 +302,15 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             .get(var_name)
             .unwrap_or_else(|| panic!("variable {var_name} not found"));
         let var_value = self
-            .visit_expr(&assign.value)?
+            .read_expr_value(&assign.value)?
             .expect("expr must return a value");
 
+        let val = self.load_ptr_or_read(var_value);
+
         if var.is_pointer_value() {
-            self.builder
-                .build_store(var.into_pointer_value(), var_value);
+            self.builder.build_store(var.into_pointer_value(), val);
         } else {
-            self.compiler_ctx
-                .basic_value_stack
-                .insert(var_name, var_value);
+            self.compiler_ctx.basic_value_stack.insert(var_name, val);
         }
         Ok(None)
     }
@@ -332,23 +346,22 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             .basic_value_stack
             .insert(var_name, var_ptr.as_basic_value_enum());
 
-        if let Some(var_value) = &var_decl.value {
-            let var_value = self
-                .visit_expr(var_value)?
-                .expect("expr must return a value")
-                .as_basic_value_enum();
-            self.builder
-                .build_store(var_ptr.into_pointer_value(), var_value);
+        //todo change order of this
+        if let Some(expr) = &var_decl.value {
+            let val = self
+                .read_expr_value(expr)?
+                .expect("expr must return a value");
+            self.builder.build_store(var_ptr.into_pointer_value(), val);
         };
         Ok(None)
     }
     fn visit_return(&mut self, return_: &Return) -> CodeGenResult<'ctx> {
         match return_.value {
             Some(ref value) => {
-                let return_value = self
-                    .visit_expr(value)?
-                    .expect("return value should be a value");
-                self.builder.build_return(Some(&return_value))
+                let val = self
+                    .read_expr_value(value)?
+                    .expect("expr must return a value");
+                self.builder.build_return(Some(&val))
             }
             None => self.builder.build_return(None),
         };
@@ -370,8 +383,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         self.builder.build_unconditional_branch(while_block);
         self.builder.position_at_end(while_block);
         let comparison = self
-            .visit_expr(&while_.condition)?
-            .expect("expr should return a value");
+            .read_expr_value(&while_.condition)?
+            .expect("expr must return a value");
         self.builder
             .build_conditional_branch(comparison.into_int_value(), body_block, merge_block);
         self.builder.position_at_end(body_block);
@@ -390,8 +403,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             "else",
         );
         let comparison = self
-            .visit_expr(&if_.condition)?
-            .expect("expr should return a value");
+            .read_expr_value(&if_.condition)?
+            .expect("expr must return a value");
         self.builder
             .build_conditional_branch(comparison.into_int_value(), then_block, else_block);
         let merge_block = self.llvm_ctx.append_basic_block(
@@ -414,8 +427,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     fn visit_expr(&mut self, expr: &Expr) -> CodeGenResult<'ctx> {
         match expr {
             Expr::BinOp { lhs, op, rhs, .. } => {
-                let lhs = self.visit_expr(lhs)?.expect("expr should return a value");
-                let rhs = self.visit_expr(rhs)?.expect("expr should return a value");
+                let lhs = self
+                    .read_expr_value(lhs)?
+                    .expect("expr should return a value");
+                let rhs = self
+                    .read_expr_value(rhs)?
+                    .expect("expr should return a value");
                 //todo support other types
                 match op {
                     //ints, floats, strings
@@ -535,7 +552,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 }
             }
             Expr::UnOp { op, expr, .. } => {
-                let expr = self.visit_expr(expr)?.expect("expr should return a value");
+                let expr = self
+                    .read_expr_value(expr)?
+                    .expect("expr should return a value");
                 match op {
                     UnOp::Neg(_) => {
                         let res = if expr.is_int_value() {
@@ -580,12 +599,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .basic_value_stack
                     .get(var_name)
                     .unwrap_or_else(|| panic!("variable {var_name} not found"));
-                let val = if var.is_pointer_value() {
-                    self.builder.build_load(var.into_pointer_value(), var_name)
-                } else {
-                    var
-                };
-                Ok(Some(val))
+                Ok(Some(var))
             }
             Expr::String { value, .. } => {
                 let val = &value[1..value.len() - 1]
@@ -619,7 +633,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .iter()
                     .map(|arg| {
                         BasicMetadataValueEnum::from(
-                            self.visit_expr(arg)
+                            self.read_expr_value(arg)
                                 .expect("expression resulted in error") //todo handle resulting error
                                 .expect("expression should return a value"),
                         )
@@ -658,6 +672,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .unwrap();
                 let llvm_inner_ptr_type = llvm_inner_type.ptr_type(AddressSpace::default());
                 let struct_ptr = self.builder.build_alloca(llvm_struct_type, "gadt");
+                // todo!("set tag of gadt");
                 let tag_ptr = self
                     .builder
                     .build_struct_gep(struct_ptr, 0, "tag_ptr")
@@ -675,8 +690,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 match args {
                     ConstructorCallArgs::Tuple(params) => {
                         for (i, param) in params.iter().enumerate() {
-                            let param =
-                                self.visit_expr(param)?.expect("expr should return a value");
+                            let param = self
+                                .read_expr_value(param)?
+                                .expect("expr should return a value");
                             let ptr = self
                                 .builder
                                 .build_struct_gep(inner_ptr, i as u32, "param")
@@ -696,7 +712,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         {
                             GADTConstructorFields::Struct(_, field_indices) => {
                                 for (key, expr) in fields.iter() {
-                                    let expr_value = self.visit_expr(expr)?.expect("expr should return a value");
+                                    let expr_value = self.read_expr_value(expr)?.expect("expr should return a value");
                                     let i = *field_indices.get(key).expect("constructor call field must exist");
                                     let ptr = self
                                         .builder
@@ -716,12 +732,51 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 }
                 let gadt_value = self.builder.build_load(struct_ptr, "gadt_value");
                 Ok(Some(gadt_value))
-
-                // todo!("constructor call expr: set tag of gadt");
-
-                // todo!("constructor call expr: set fields of gadt");
             }
-            Expr::Function { .. } => todo!("anon function expr"),
+            Expr::MemberAccess { expr, member, .. } => {
+                // ? need to figure out how to get adt type, specific tag and llvm type from expr
+                // match **expr {
+                //     Expr::Var { name, .. } => todo!("var member access"),
+                //     Expr::MemberAccess { .. } => todo!("member access"),
+                //     _ => panic!("unsupported member access"),
+                // };
+
+                // ! type checker should ensure that this is a GADT
+                // ! so the expr should be a pointer to a GADT
+                let e = self
+                    .visit_expr(expr)?
+                    .expect("expr should return a value")
+                    .into_pointer_value();
+
+                match member {
+                    MemberAccessType::Field(span) => {
+                        let field_name = self.lexer.span_str(*span);
+                        todo!("member access by field")
+                    }
+                    MemberAccessType::Index(span) => {
+                        let index = self
+                            .lexer
+                            .span_str(*span)
+                            .parse::<u32>()
+                            .expect("should be a valid index");
+
+                        // let tag = self.builder.build_struct_gep(e, 0, "tag").unwrap();
+
+                        let temp_inner_ptr = self
+                            .builder
+                            .build_struct_gep(e, 1, "temp_inner_ptr")
+                            .unwrap();
+                        //todo bitcast pointer to correct type before GEP
+                        let value = self
+                            .builder
+                            .build_struct_gep(temp_inner_ptr, index, "member_access")
+                            .unwrap();
+                        let value = self.builder.build_load(value, "value");
+                        Ok(Some(value.as_basic_value_enum()))
+                    }
+                }
+            }
+            e => unimplemented!("{e:?}"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {

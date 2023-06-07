@@ -276,8 +276,8 @@ expr -> ParseResult<Expr>
     ;
 
 member_access -> ParseResult<Expr>
-    : expr "DOT" "IDENT" { Ok(todo!("member access: ident")) } %prec "DOT"
-    | expr "DOT" "INT_LIT" { Ok(todo!("member access: index")) } %prec "DOT"
+    : expr "DOT" "IDENT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Field($3?.span()), span: $span}) } %prec "DOT"
+    | expr "DOT" "INT_LIT" { Ok(Expr::MemberAccess{expr: Box::new($1?), member: MemberAccessType::Index($3?.span()), span: $span}) } %prec "DOT"
     ;
 
 factor -> ParseResult<Expr>

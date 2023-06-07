@@ -12,8 +12,8 @@ fn main() -> i64 {
     d : Enum = construct C(10, 20);    // use unnamed constructor, must be in order 
 
 
-    x : i64 = b.0;
-    y : i64 = c.b;
+    x : i64 = c.0;
+    y : i64 = c.1;
 
     return x + y;
 }

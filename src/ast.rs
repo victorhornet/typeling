@@ -251,6 +251,17 @@ pub enum Expr {
         args: ConstructorCallArgs,
         span: Span,
     },
+    MemberAccess {
+        expr: Box<Expr>,
+        member: MemberAccessType,
+        span: Span,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum MemberAccessType {
+    Index(Span),
+    Field(Span),
 }
 
 #[derive(Debug, Clone)]
