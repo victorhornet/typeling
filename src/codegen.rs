@@ -578,7 +578,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .compiler_ctx
                     .basic_value_stack
                     .get(var_name)
-                    .expect("variable not found");
+                    .unwrap_or_else(|| panic!("variable {var_name} not found"));
                 let val = if var.is_pointer_value() {
                     self.builder.build_load(var.into_pointer_value(), var_name)
                 } else {
@@ -651,6 +651,14 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let llvm_type = self.llvm_ctx.get_struct_type(gadt_name).unwrap();
 
                 let struct_ptr = self.builder.build_alloca(llvm_type, "gadt");
+                let tag_ptr = self
+                    .builder
+                    .build_struct_gep(struct_ptr, 0, "tag_ptr")
+                    .unwrap(); //todo set tag of struct
+                let inner_ptr = self
+                    .builder
+                    .build_struct_gep(struct_ptr, 1, "inner_ptr")
+                    .unwrap();
 
                 match args {
                     ConstructorCallArgs::Tuple(params) => {
@@ -659,7 +667,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                                 self.visit_expr(param)?.expect("expr should return a value");
                             let ptr = self
                                 .builder
-                                .build_struct_gep(struct_ptr, i as u32, "param")
+                                .build_struct_gep(inner_ptr, i as u32, "param")
                                 .expect("type check should have caught this");
                             self.builder.build_store(ptr, param);
                         }
@@ -681,7 +689,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                                     let ptr = self
                                         .builder
                                         .build_struct_gep(
-                                            struct_ptr,
+                                            inner_ptr,
                                             i as u32,
                                             "field",
                                         )
@@ -694,8 +702,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     }
                     ConstructorCallArgs::None => {}
                 }
-
-                Ok(Some(struct_ptr.as_basic_value_enum()))
+                let gadt_value = self.builder.build_load(struct_ptr, "gadt_value");
+                Ok(Some(gadt_value))
 
                 // todo!("constructor call expr: set tag of gadt");
 

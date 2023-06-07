@@ -111,11 +111,13 @@ pub struct GADTConstructor {
 
 impl GADTConstructor {
     pub fn new(name: &str, fields: GADTConstructorFields) -> Self {
-        Self {
+        let mut cons = Self {
             name: name.to_owned(),
             fields,
             size: 0,
-        }
+        };
+        cons.compute_size();
+        cons
     }
     pub fn llvm_name(&self) -> String {
         "constructor_".to_string() + self.name.as_str()
