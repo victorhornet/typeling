@@ -4,6 +4,8 @@ type Enum = A
 
 type Tuple = Tuple i64 i64
 
+type S = S i64 S | E
+
 type List = Nil
           | Cons i64 List
 
@@ -12,15 +14,17 @@ type BinTree = Leaf
 
 type Loop = Loop i64 Loop | Temp
 
+type OptionalInt = NoneI | SomeI i64
+type OptionalTuple = NoneT | SomeT Tuple
 
 fn enums() -> i64 {
-    a : Enum = construct A;
-    b : Enum = construct B(1);
+    a : Enum =  A;
+    b : Enum =  B(1);
 
 
-    c : Enum = construct C(b=20, a=10); // named constructors can be in any order
+    c : Enum =  C(b=20, a=10); // named constructors can be in any order
 
-    d : Enum = construct C(10, 20);     // unnamed constructor must be in order 
+    d : Enum =  C(10, 20);     // unnamed constructor must be in order 
 
 
     x : i64 = c.0;
@@ -28,12 +32,12 @@ fn enums() -> i64 {
     z : i64 = x + y;
     z = z + y;
 
-    c = construct C(a=c.0, b=100);
+    c = C(a=c.0, b=100);
     return c.0 + c.1;
 }
 
 fn list() -> i64 {
-    list : List = construct Cons(1, construct Cons(2, construct Cons(3, construct Nil)));
+    list : List =  Cons(1, Cons(2, Cons(3, Nil)));
     head : List = list.0;
     tail : List = list.1;
 
@@ -44,7 +48,7 @@ fn list() -> i64 {
 }
 
 fn tree() -> i64 {
-    tree: BinTree = construct Node(20, construct Node(10, construct Leaf, construct Leaf), construct Node(30, construct Leaf, construct Leaf));
+    tree: BinTree =  Node(20, Node(10, Leaf, Leaf), Node(30, Leaf, Leaf));
 
     left: BinTree = tree.1;
     right: BinTree = tree.2;
@@ -53,27 +57,51 @@ fn tree() -> i64 {
     return left.0 + tree.0 + right.0;
 }
 
-fn infinite() -> i64 {
-    x : Loop = construct Loop(1, construct Temp);
-    x = construct Loop(1, x);
-    tail : Loop = x.1;
-    tail = x.1;
-    tail = x.1;
-    tail = x.1;
-    tail = x.1;
-    tail = x.1;
-    return tail.0;
+fn fake_infinite() -> i64 {
+    x : Loop =  Loop(1,  Temp);
+    x =  Loop(1, x);
+
+    x.0 = 100;
+
+    return x.0;
 }
 
 fn test_tags() -> i64 {
-    x: Enum = construct A;
-    y: Enum = construct B(1);
-    z: Enum = construct C(10,20);
+    x: Enum =  A;
+    y: Enum =  B(1);
+    z: Enum =  C(10,20);
     return 0;
 }
 
+fn optionals() -> i64 {
+    x: OptionalInt = NoneI;
+    y: OptionalInt = SomeI(10);
+    z: OptionalTuple = SomeT(Tuple(10, 20));
+    return y.0;
+}
+
+
+/*fn switch_statement() -> i64 {
+    x: Enum =  A;
+    y: Enum =  B(1);
+    z: Enum =  C(10,20);
+
+    case1: Enum = case x {
+        A => return 1,
+        B(i) => return i,
+        C(a,b) => return a + b,
+    };
+
+    //case2: Enum = case x : A => 1 | B(i) => i | C(a,b) => a + b ;
+
+
+    return z.b;
+}*/
+
 fn main() -> i64 {
-    return test_tags();
+    z: Enum = C(10,69);
+    z.0 = 100;
+    return z.0 + z.1;
 }
 
 

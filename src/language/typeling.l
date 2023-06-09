@@ -10,11 +10,11 @@ type "TYPE"
 alias "ALIAS"
 let "LET"
 construct "CONSTRUCT"
-
+case "CASE"
 
 
 [0-9]+ "INT_LIT"
-[0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*)) "FLOAT_LIT"
+[0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*))f "FLOAT_LIT"
 \"([^\\\"]|\\[\'\"ntr])*\" "STRING_LIT"
 true "TRUE"
 false "FALSE"
@@ -56,8 +56,10 @@ String "STRING"
 bool "BOOL"
 
 -> "RETURNS"
+=> "ARROW"
 
-[_a-zA-Z][_a-zA-Z0-9]* "IDENT"
+[_a-z][_a-zA-Z0-9]* "IDENT"
+[A-Z][_a-zA-Z0-9]* "TYPE_IDENT"
 
 
 [\t \n]+ ;

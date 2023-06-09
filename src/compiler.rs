@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use inkwell::{
-    types::StructType,
-    values::{BasicValueEnum, FunctionValue},
-};
+use inkwell::values::{BasicValueEnum, FunctionValue};
 
 use crate::{
     ast::Type,
@@ -93,11 +90,10 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
     }
     pub fn add_type_constructor(&mut self, name: &str, gadt: &GADT) {
         if self.type_constructors.contains_key(name) {
-            return;
-            // println!(
-            //     "Duplicate constructor {} in {:?}",
-            //     name, self.type_constructors
-            // );
+            println!(
+                "Duplicate constructor {} in {:?}",
+                name, self.type_constructors
+            );
         }
         self.type_constructors.insert(name.into(), gadt.clone());
     }

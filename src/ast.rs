@@ -279,6 +279,14 @@ pub enum IndentationLevel {
     None,
 }
 
-pub fn slice<'a>(input: &'a str, span: &Span) -> &'a str {
-    &input[span.start()..span.end()]
+pub enum Pattern {
+    Wildcard,
+    Ident(Span),
+    TypeIdent(Span, TypePatternArgs),
+}
+
+pub enum TypePatternArgs {
+    None,
+    Tuple(Vec<Pattern>),
+    Struct(HashMap<String, Pattern>),
 }

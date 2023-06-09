@@ -1,4 +1,4 @@
-use std::{error::Error, path::Path};
+use std::{error::Error, mem, path::Path};
 
 // globals definer -> type checker -> code generation
 
@@ -262,6 +262,21 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.build_store(ptr, param);
         Ok(())
     }
+
+    fn get_member_index(&mut self, member: &MemberAccessType) -> u32 {
+        let index = match member {
+            MemberAccessType::Field(span) => {
+                let field_name = self.lexer.span_str(*span);
+                todo!("member access by field")
+            }
+            MemberAccessType::Index(span) => self
+                .lexer
+                .span_str(*span)
+                .parse::<u32>()
+                .expect("should be a valid index"),
+        };
+        index
+    }
 }
 
 #[allow(unused_variables)]
@@ -338,34 +353,39 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             .expect("expr must return a value");
         let var_value = self.load_ptr_or_read(var_value_or_pointer);
 
-        match assign.target.clone() {
+        let var = match assign.target.clone() {
             Expr::Var { name, .. } => {
                 let var_name = self.lexer.span_str(name);
-                let var = self
-                    .compiler_ctx
+                self.compiler_ctx
                     .basic_value_stack
                     .get(var_name)
-                    .unwrap_or_else(|| panic!("variable {var_name} not found"));
-
-                if var.is_pointer_value() {
-                    // if var_value.is_pointer_value() {
-                    //     self.compiler_ctx
-                    //         .basic_value_stack
-                    //         .insert(var_name, var_value);
-                    // } else {
-                    self.builder
-                        .build_store(var.into_pointer_value(), var_value);
-                    //}
-                } else {
-                    self.compiler_ctx
-                        .basic_value_stack
-                        .insert(var_name, var_value);
-                };
-                Ok(None)
+                    .unwrap_or_else(|| panic!("variable {var_name} not found"))
+                    .into_pointer_value()
             }
-            Expr::MemberAccess { expr, member, .. } => todo!("member access assign"),
+            Expr::MemberAccess { expr, member, .. } => {
+                let ptr = self
+                    .visit_expr(expr.as_ref())?
+                    .expect("expr must return a pointer value")
+                    .into_pointer_value();
+
+                let inner_ptr = self.builder.build_struct_gep(ptr, 1, "inner_ptr").unwrap();
+
+                let index = self.get_member_index(&member);
+                //todo bitcast inner_ptr to variant type
+
+                let member_ptr = self
+                    .builder
+                    .build_struct_gep(inner_ptr, index, "member_access")
+                    .expect("member should exist");
+
+                member_ptr
+            }
             _ => panic!("assign target not supported"),
-        }
+        };
+
+        self.builder.build_store(var, var_value);
+
+        Ok(None)
     }
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> CodeGenResult<'ctx> {
         let var_name = self.lexer.span_str(var_decl.name);
@@ -744,10 +764,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .build_struct_gep(struct_ptr, 0, "tag_ptr")
                     .unwrap();
 
-                //todo check if this is correct
                 let tag_value = self.llvm_ctx.i64_type().const_int(*tag as u64, false);
                 self.builder.build_store(tag_ptr, tag_value);
-                //todo
 
                 let temp_inner_ptr = self
                     .builder
@@ -789,24 +807,14 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 //     _ => panic!("unsupported member access"),
                 // };
 
-                // ! type checker should ensure that this is a GADT
-                // ! so the expr should be a pointer to a GADT
+                // type checker should ensure that this is a GADT
+                // so the expr should be a pointer to a GADT
                 let mut e = self
                     .visit_expr(expr)?
                     .expect("expr should return a pointer value")
                     .into_pointer_value();
 
-                let index = match member {
-                    MemberAccessType::Field(span) => {
-                        let field_name = self.lexer.span_str(*span);
-                        todo!("member access by field")
-                    }
-                    MemberAccessType::Index(span) => self
-                        .lexer
-                        .span_str(*span)
-                        .parse::<u32>()
-                        .expect("should be a valid index"),
-                };
+                let index = self.get_member_index(member);
                 if !e.get_type().get_element_type().is_struct_type() {
                     if !e.get_type().get_element_type().is_pointer_type() {
                         panic!("member access on non pointer type");
@@ -832,11 +840,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
         //todo map llvm_type -> gadt
         let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
-        for constructor in type_decl.get_tags().keys() {
-            self.compiler_ctx
-                .add_type_constructor(constructor, type_decl);
-        }
-        self.compiler_ctx.add_constructor_signatures(&type_decl);
+        // ! this was already done in the type checker phase
+        // for constructor in type_decl.get_tags().keys() {
+        //     self.compiler_ctx
+        //         .add_type_constructor(constructor, type_decl);
+        // }
+        self.compiler_ctx.add_constructor_signatures(type_decl);
         Ok(None)
     }
     fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {

@@ -10,8 +10,7 @@
 %nonassoc "NOT" 
 
 
-%right "IDENT" "LPAREN" 
-
+%right "IDENT" "TYPE_IDENT" "LPAREN" 
 %%
 file -> ParseResult<File>
     : item_list { Ok(File {items: $1?, span: $span}) }
@@ -30,11 +29,11 @@ item -> ParseResult<Item>
     ;
 
 alias_decl -> ParseResult<AliasDecl>
-    : "ALIAS" "IDENT" "ASSIGN" type { Ok(AliasDecl {name: $2?.span(), original: $4?, span: $span}) }
+    : "ALIAS" "TYPE_IDENT" "ASSIGN" type { Ok(AliasDecl {name: $2?.span(), original: $4?, span: $span}) }
     ;
 
 type_decl -> ParseResult<GADT>
-    : "TYPE" "IDENT" generics type_def {
+    : "TYPE" "TYPE_IDENT" generics type_def {
         let name = $lexer.span_str($2?.span()).to_string();
         let generics = $3?;
         let constructors = $4?;
@@ -79,10 +78,10 @@ type_constructors -> ParseResult<HashMap<String, GADTConstructor>>
     ;
 
 type_constructor -> ParseResult<GADTConstructor>
-    : "IDENT" type_constructor_params { 
+    : "TYPE_IDENT" type_constructor_params { 
         Ok(GADTConstructor::new($lexer.span_str($1?.span()),  $2?)) 
     }
-    | "IDENT" shorthand_def { 
+    | "TYPE_IDENT" shorthand_def { 
         let mut constructor = $2?.get("@").unwrap().clone();
         let name = $lexer.span_str($1?.span()).to_string();
         constructor.set_name(&name);
@@ -235,7 +234,7 @@ assign_stmt -> ParseResult<Assign>
 
 type -> ParseResult<Type>
     : primitive_type { $1 }
-    | "IDENT" { Ok(Type::Ident($lexer.span_str($1?.span()).to_string())) }
+    | "TYPE_IDENT" { Ok(Type::Ident($lexer.span_str($1?.span()).to_string())) }
     ;
 
 primitive_type -> ParseResult<Type>
@@ -298,9 +297,9 @@ comma_separated_exprs -> ParseResult<Vec<Expr>>
 term -> ParseResult<Expr>
     : assignable_expr { $1 }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
-    | "CONSTRUCT" "IDENT" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::None, span: $span}) }
-    | "CONSTRUCT" "IDENT" "LPAREN" comma_separated_exprs "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
-    | "CONSTRUCT" "IDENT" "LPAREN" construct_type_arg_list_named_elems "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
+    | "TYPE_IDENT" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::None, span: $span}) }
+    | "TYPE_IDENT" "LPAREN" comma_separated_exprs "RPAREN" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::from($3?), span: $span}) }
+    | "TYPE_IDENT" "LPAREN" construct_type_arg_list_named_elems "RPAREN" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::from($3?), span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
@@ -323,6 +322,7 @@ unary_op -> ParseResult<UnOp>
     : "MINUS" { Ok(UnOp::Neg($span)) }
     | "NOT" { Ok(UnOp::Not($span)) } 
     ;
+
 
 %%
 
