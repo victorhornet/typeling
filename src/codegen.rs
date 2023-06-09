@@ -387,7 +387,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(Type::Float) => self.llvm_ctx.f64_type().into(),
             Some(Type::Bool) => self.llvm_ctx.bool_type().into(),
             Some(Type::String(_)) => todo!("string type"),
-            Some(Type::Ident(name)) => self.llvm_ctx.get_struct_type(name).unwrap().into(),
+            Some(Type::Ident(name)) => self
+                .llvm_ctx
+                .get_struct_type(name)
+                .unwrap_or_else(|| panic!("type {} does not exist", name))
+                .into(),
             Some(t) => unimplemented!("{:?}", t),
             None => todo!("type inference"),
         };
