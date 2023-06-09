@@ -1,10 +1,18 @@
-type Enum = A
+/*type Enum = A
           | B i64
           | C a:i64 b:i64  
 
 type Tuple = Tuple i64 i64
+*/
+
+type List = Nil
+          | Cons i64 List
+
+type BinTree = Leaf
+             | Node i64 BinTree BinTree
 
 fn main() -> i64 {
+    /*
     a : Enum = construct A;
     b : Enum = construct B(1);
 
@@ -18,9 +26,20 @@ fn main() -> i64 {
     y : i64 = c.1;
     z : i64 = x + y;
     z = z + y;
-    
-    c.0 = z;
 
-    return c.0 + c.1 + z;
+    c = construct C(a=c.0, b=100);
+    */
+
+    list : List = construct Cons(1, construct Cons(2, construct Cons(3, construct Nil)));
+    head : List = list.0;
+    tail : List = list.1;
+
+    tree: BinTree = construct Node(20, construct Node(10, construct Leaf, construct Leaf), construct Node(30, construct Leaf, construct Leaf));
+
+    left: BinTree = tree.1;
+    right: BinTree = tree.2;
+
+
+    return left.0 + tree.0 + right.0;
 }
 

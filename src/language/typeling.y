@@ -287,28 +287,19 @@ factor -> ParseResult<Expr>
 assignable_expr -> ParseResult<Expr>
     : "IDENT" { Ok( Expr::Var{name: $1?.span(), span: $span}) }
     | member_access { $1 }
-    | array { $1 }
     ;
 
-array -> ParseResult<Expr>
-    : "LBRACKET" array_elems "RBRACKET" { Ok(Expr::Array{values: $2?, span: $span}) }
-    ;
 
-array_elems -> ParseResult<Vec<Expr>>
-    : %empty { Ok(vec![]) }
-    | array_elem_list { $1 }
-    ;
-
-array_elem_list -> ParseResult<Vec<Expr>>
+comma_separated_exprs -> ParseResult<Vec<Expr>>
     : expr { Ok(vec![$1?]) }
-    | array_elem_list "COMMA" expr { flatten($1, $3) }
+    | comma_separated_exprs "COMMA" expr { flatten($1, $3) }
     ;
 
 term -> ParseResult<Expr>
     : assignable_expr { $1 }
     | "IDENT" "LPAREN" args "RPAREN" { Ok( Expr::FunctionCall {name: $1?.span(), args: $3?, span: $span}) }
     | "CONSTRUCT" "IDENT" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::None, span: $span}) }
-    | "CONSTRUCT" "IDENT" "LPAREN" array_elem_list "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
+    | "CONSTRUCT" "IDENT" "LPAREN" comma_separated_exprs "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
     | "CONSTRUCT" "IDENT" "LPAREN" construct_type_arg_list_named_elems "RPAREN" { Ok(Expr::ConstructorCall {name: $2?.span(), args: ConstructorCallArgs::from($4?), span: $span}) }
     | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }

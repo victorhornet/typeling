@@ -8,7 +8,9 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
-    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue},
+    values::{
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
+    },
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
@@ -225,6 +227,41 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             _ => unimplemented!(),
         }
     }
+
+    fn assign_adt_field(
+        &mut self,
+        param: &Expr,
+        inner_ptr: PointerValue,
+        i: usize,
+    ) -> Result<(), Box<dyn Error>> {
+        let ptr = self
+            .builder
+            .build_struct_gep(inner_ptr, i as u32, "param")
+            .expect("type check should have caught this");
+        let elem_type = ptr.get_type().get_element_type();
+        let param = match param {
+            e @ Expr::Var { .. } | e @ Expr::MemberAccess { .. } => {
+                let res = self
+                    .visit_expr(e)?
+                    .expect("expr should return a value")
+                    .into_pointer_value();
+                if elem_type.is_pointer_type() {
+                    res.as_basic_value_enum()
+                } else {
+                    self.builder.build_load(res, "load")
+                }
+            }
+            e @ Expr::ConstructorCall { .. } => {
+                self.visit_expr(e)?.expect("expr should return a value")
+            }
+            _ => self
+                .read_expr_value(param)?
+                .expect("expr should return a value"),
+        };
+
+        self.builder.build_store(ptr, param);
+        Ok(())
+    }
 }
 
 #[allow(unused_variables)]
@@ -296,10 +333,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     }
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
         //todo change this
-        let var_value = self
+        let var_value_or_pointer = self
             .visit_expr(&assign.value)?
             .expect("expr must return a value");
-        let val = self.load_ptr_or_read(var_value);
+        let var_value = self.load_ptr_or_read(var_value_or_pointer);
 
         match assign.target.clone() {
             Expr::Var { name, .. } => {
@@ -316,10 +353,13 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     //         .basic_value_stack
                     //         .insert(var_name, var_value);
                     // } else {
-                    self.builder.build_store(var.into_pointer_value(), val);
+                    self.builder
+                        .build_store(var.into_pointer_value(), var_value);
                     //}
                 } else {
-                    self.compiler_ctx.basic_value_stack.insert(var_name, val);
+                    self.compiler_ctx
+                        .basic_value_stack
+                        .insert(var_name, var_value);
                 };
                 Ok(None)
             }
@@ -351,21 +391,29 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(t) => unimplemented!("{:?}", t),
             None => todo!("type inference"),
         };
-        let var_ptr = self
-            .builder
-            .build_alloca(var_type, var_name)
-            .as_basic_value_enum();
+        let var_ptr = match &var_decl.value {
+            Some(expr) => {
+                let value = self.visit_expr(expr)?.expect("expr must return a value");
+                if value.is_pointer_value() {
+                    value
+                } else {
+                    let var_ptr = self
+                        .builder
+                        .build_alloca(var_type, var_name)
+                        .as_basic_value_enum();
+                    self.builder
+                        .build_store(var_ptr.into_pointer_value(), value);
+                    var_ptr
+                }
+            }
+            None => self
+                .builder
+                .build_alloca(var_type, var_name)
+                .as_basic_value_enum(),
+        };
         self.compiler_ctx
             .basic_value_stack
             .insert(var_name, var_ptr.as_basic_value_enum());
-
-        //todo change order of this
-        if let Some(expr) = &var_decl.value {
-            let val = self
-                .read_expr_value(expr)?
-                .expect("expr must return a value");
-            self.builder.build_store(var_ptr.into_pointer_value(), val);
-        };
         Ok(None)
     }
     fn visit_return(&mut self, return_: &Return) -> CodeGenResult<'ctx> {
@@ -636,9 +684,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 );
                 Ok(Some(ptr.as_basic_value_enum()))
             }
-            Expr::Struct { .. } => todo!("struct expr"),
-            Expr::Enum { .. } => todo!("enum expr"),
-            Expr::Array { .. } => todo!("array expr"),
             Expr::FunctionCall { name, args, .. } => {
                 let func_name = self.lexer.span_str(*name);
 
@@ -702,15 +747,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
                 match args {
                     ConstructorCallArgs::Tuple(params) => {
-                        for (i, param) in params.iter().enumerate() {
-                            let param = self
-                                .read_expr_value(param)?
-                                .expect("expr should return a value");
-                            let ptr = self
-                                .builder
-                                .build_struct_gep(inner_ptr, i as u32, "param")
-                                .expect("type check should have caught this");
-                            self.builder.build_store(ptr, param);
+                        for (i, expr) in params.iter().enumerate() {
+                            self.assign_adt_field(expr, inner_ptr, i)?;
                         }
                     }
                     ConstructorCallArgs::Struct(fields) => {
@@ -725,17 +763,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         {
                             GADTConstructorFields::Struct(_, field_indices) => {
                                 for (key, expr) in fields.iter() {
-                                    let expr_value = self.read_expr_value(expr)?.expect("expr should return a value");
                                     let i = *field_indices.get(key).expect("constructor call field must exist");
-                                    let ptr = self
-                                        .builder
-                                        .build_struct_gep(
-                                            inner_ptr,
-                                            i as u32,
-                                            "field",
-                                        )
-                                        .expect("type check should have caught this");
-                                    self.builder.build_store(ptr, expr_value);
+                                    self.assign_adt_field(expr, inner_ptr, i)?;
                                 }
                             }
                             _ => panic!("constructor must be a struct, type checker should have caught this"),
@@ -743,8 +772,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     }
                     ConstructorCallArgs::None => {}
                 }
-                let gadt_value = self.builder.build_load(struct_ptr, "gadt_value");
-                Ok(Some(gadt_value))
+                // let gadt_value = self.builder.build_load(struct_ptr, "gadt_value");
+                Ok(Some(struct_ptr.as_basic_value_enum()))
             }
             Expr::MemberAccess { expr, member, .. } => {
                 // ? need to figure out how to get adt type, specific tag and llvm type from expr
@@ -756,7 +785,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
                 // ! type checker should ensure that this is a GADT
                 // ! so the expr should be a pointer to a GADT
-                let e = self
+                let mut e = self
                     .visit_expr(expr)?
                     .expect("expr should return a value")
                     .into_pointer_value();
@@ -774,11 +803,17 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             .expect("should be a valid index");
 
                         // let tag = self.builder.build_struct_gep(e, 0, "tag").unwrap();
-
+                        if !e.get_type().get_element_type().is_struct_type() {
+                            if !e.get_type().get_element_type().is_pointer_type() {
+                                panic!("member access on non pointer type");
+                            }
+                            e = self.builder.build_load(e, "deref").into_pointer_value();
+                        }
                         let temp_inner_ptr = self
                             .builder
                             .build_struct_gep(e, 1, "temp_inner_ptr")
                             .unwrap();
+
                         //todo bitcast pointer to correct type before GEP
                         let value = self
                             .builder

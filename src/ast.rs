@@ -193,32 +193,17 @@ pub enum Expr {
     Int {
         value: i64,
         span: Span,
-    },
+    }, //IntValue
     Float {
         value: f64,
         span: Span,
-    },
+    }, //FloatValue
     Bool {
         value: bool,
         span: Span,
-    },
+    }, //BoolValue
     String {
         value: String,
-        span: Span,
-    },
-    Struct {
-        name: Span,
-        fields: Vec<StructField>,
-        span: Span,
-    },
-    Enum {
-        name: Span,
-        variant: Span,
-        fields: Vec<Expr>,
-        span: Span,
-    },
-    Array {
-        values: Vec<Expr>,
         span: Span,
     },
     Function {
@@ -229,18 +214,18 @@ pub enum Expr {
     Var {
         name: Span,
         span: Span,
-    },
+    }, // PointerValue or BasicValue
     BinOp {
         op: BinOp,
         lhs: Box<Expr>,
         rhs: Box<Expr>,
         span: Span,
-    },
+    }, // BasicValue (non-pointer)
     UnOp {
         op: UnOp,
         expr: Box<Expr>,
         span: Span,
-    },
+    }, // BasicValue (non-pointer)
     FunctionCall {
         name: Span,
         args: Vec<Expr>,
@@ -250,12 +235,12 @@ pub enum Expr {
         name: Span,
         args: ConstructorCallArgs,
         span: Span,
-    },
+    }, // PointerValue
     MemberAccess {
         expr: Box<Expr>,
         member: MemberAccessType,
         span: Span,
-    },
+    }, // PointerValue
 }
 
 #[derive(Debug, Clone)]
