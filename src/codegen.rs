@@ -716,7 +716,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             Expr::ConstructorCall { name, args, .. } => {
                 let constructor_name = self.lexer.span_str(*name);
-
+                let (constructor_sig, tag) = self
+                    .compiler_ctx
+                    .constructor_signatures
+                    .get(constructor_name)
+                    .expect("constructor must have been defined");
                 let llvm_constructor_name = "constructor_".to_owned() + constructor_name;
 
                 let gadt = self
@@ -734,11 +738,17 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .unwrap();
                 let llvm_inner_ptr_type = llvm_inner_type.ptr_type(AddressSpace::default());
                 let struct_ptr = self.builder.build_alloca(llvm_struct_type, "gadt");
-                // todo!("set tag of gadt");
+
                 let tag_ptr = self
                     .builder
                     .build_struct_gep(struct_ptr, 0, "tag_ptr")
-                    .unwrap(); //todo set tag of struct
+                    .unwrap();
+
+                //todo check if this is correct
+                let tag_value = self.llvm_ctx.i64_type().const_int(*tag as u64, false);
+                self.builder.build_store(tag_ptr, tag_value);
+                //todo
+
                 let temp_inner_ptr = self
                     .builder
                     .build_struct_gep(struct_ptr, 1, "temp_inner_ptr")
@@ -749,34 +759,26 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .build_bitcast(temp_inner_ptr, llvm_inner_ptr_type, "inner_ptr")
                     .into_pointer_value();
 
-                match args {
-                    ConstructorCallArgs::Tuple(params) => {
-                        for (i, expr) in params.iter().enumerate() {
-                            self.assign_adt_field(expr, inner_ptr, i)?;
-                        }
-                    }
+                let params: Vec<(usize, &Expr)> = match args {
+                    ConstructorCallArgs::Tuple(params) => params.iter().enumerate().collect(),
                     ConstructorCallArgs::Struct(fields) => {
-                        let constructor_fields = self
-                            .compiler_ctx
-                            .constructor_signatures
-                            .get(constructor_name)
-                            .expect("constructor must have been defined")
-                            .get_fields()
-                            .clone();
+                        let constructor_fields = constructor_sig.get_fields().clone();
                         match constructor_fields
                         {
                             GADTConstructorFields::Struct(_, field_indices) => {
-                                for (key, expr) in fields.iter() {
+                                fields.iter().map(|(key, expr)| {
                                     let i = *field_indices.get(key).expect("constructor call field must exist");
-                                    self.assign_adt_field(expr, inner_ptr, i)?;
-                                }
+                                    (i, expr)
+                                }).collect()
                             }
                             _ => panic!("constructor must be a struct, type checker should have caught this"),
                         }
                     }
-                    ConstructorCallArgs::None => {}
+                    ConstructorCallArgs::None => vec![],
+                };
+                for (i, expr) in params {
+                    self.assign_adt_field(expr, inner_ptr, i)?;
                 }
-                // let gadt_value = self.builder.build_load(struct_ptr, "gadt_value");
                 Ok(Some(struct_ptr.as_basic_value_enum()))
             }
             Expr::MemberAccess { expr, member, .. } => {
@@ -791,53 +793,50 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 // ! so the expr should be a pointer to a GADT
                 let mut e = self
                     .visit_expr(expr)?
-                    .expect("expr should return a value")
+                    .expect("expr should return a pointer value")
                     .into_pointer_value();
 
-                match member {
+                let index = match member {
                     MemberAccessType::Field(span) => {
                         let field_name = self.lexer.span_str(*span);
                         todo!("member access by field")
                     }
-                    MemberAccessType::Index(span) => {
-                        let index = self
-                            .lexer
-                            .span_str(*span)
-                            .parse::<u32>()
-                            .expect("should be a valid index");
-
-                        // let tag = self.builder.build_struct_gep(e, 0, "tag").unwrap();
-                        if !e.get_type().get_element_type().is_struct_type() {
-                            if !e.get_type().get_element_type().is_pointer_type() {
-                                panic!("member access on non pointer type");
-                            }
-                            e = self.builder.build_load(e, "deref").into_pointer_value();
-                        }
-                        let temp_inner_ptr = self
-                            .builder
-                            .build_struct_gep(e, 1, "temp_inner_ptr")
-                            .unwrap();
-
-                        //todo bitcast pointer to correct type before GEP
-                        let value = self
-                            .builder
-                            .build_struct_gep(temp_inner_ptr, index, "member_access")
-                            .unwrap();
-                        Ok(Some(value.as_basic_value_enum()))
+                    MemberAccessType::Index(span) => self
+                        .lexer
+                        .span_str(*span)
+                        .parse::<u32>()
+                        .expect("should be a valid index"),
+                };
+                if !e.get_type().get_element_type().is_struct_type() {
+                    if !e.get_type().get_element_type().is_pointer_type() {
+                        panic!("member access on non pointer type");
                     }
+                    e = self.builder.build_load(e, "deref").into_pointer_value();
                 }
+                let temp_inner_ptr = self
+                    .builder
+                    .build_struct_gep(e, 1, "temp_inner_ptr")
+                    .unwrap();
+
+                //todo bitcast pointer to correct type before GEP
+                let _tag = self.builder.build_struct_gep(e, 0, "tag").unwrap();
+                let value = self
+                    .builder
+                    .build_struct_gep(temp_inner_ptr, index, "member_access")
+                    .unwrap();
+                Ok(Some(value.as_basic_value_enum()))
             }
             e => unimplemented!("{e:?}"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
+        //todo map llvm_type -> gadt
         let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
-        for constructor in type_decl.constructors.keys() {
+        for constructor in type_decl.get_tags().keys() {
             self.compiler_ctx
                 .add_type_constructor(constructor, type_decl);
-            self.compiler_ctx
-                .add_constructor_signatures(&type_decl.constructors);
         }
+        self.compiler_ctx.add_constructor_signatures(&type_decl);
         Ok(None)
     }
     fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {

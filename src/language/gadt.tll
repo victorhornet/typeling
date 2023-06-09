@@ -13,7 +13,6 @@ type BinTree = Leaf
 type Loop = Loop i64 Loop | Temp
 
 
-
 fn enums() -> i64 {
     a : Enum = construct A;
     b : Enum = construct B(1);
@@ -32,7 +31,6 @@ fn enums() -> i64 {
     c = construct C(a=c.0, b=100);
     return c.0 + c.1;
 }
-
 
 fn list() -> i64 {
     list : List = construct Cons(1, construct Cons(2, construct Cons(3, construct Nil)));
@@ -67,11 +65,17 @@ fn infinite() -> i64 {
     return tail.0;
 }
 
+fn test_tags() -> i64 {
+    x: Enum = construct A;
+    y: Enum = construct B(1);
+    z: Enum = construct C(10,20);
+    return 0;
+}
 
 fn main() -> i64 {
-    enums();
-    list();
-    tree();
-    return infinite();
+    return test_tags();
 }
+
+
+
 

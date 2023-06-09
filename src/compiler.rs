@@ -73,7 +73,7 @@ pub enum CompileError {
 
 pub struct CompilerContext<'input, 'ctx> {
     pub type_constructors: HashMap<String, GADT>,
-    pub constructor_signatures: HashMap<String, GADTConstructor>,
+    pub constructor_signatures: HashMap<String, (GADTConstructor, usize)>,
     pub types: HashMap<String, Type>,
     pub aliases: HashMap<String, String>,
     pub basic_value_stack: Stack<'input, BasicValueEnum<'ctx>>,
@@ -102,20 +102,20 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
         self.type_constructors.insert(name.into(), gadt.clone());
     }
 
-    pub fn add_constructor_signatures(
-        &mut self,
-        constructors: &HashMap<String, crate::type_system::GADTConstructor>,
-    ) {
-        for (name, cons) in constructors.iter() {
+    pub fn add_constructor_signatures(&mut self, gadt: &GADT) {
+        let constructors = gadt.get_constructors();
+        let tags = gadt.get_tags();
+        for (name, index) in tags.iter() {
             if self.constructor_signatures.contains_key(name) {
-                continue;
-                // println!(
-                //     "Duplicate constructor {} in {:?}",
-                //     name, self.constructor_signatures
-                // );
+                // continue;
+                panic!(
+                    "Duplicate constructor {} in {:?}",
+                    name, self.constructor_signatures
+                );
             }
+            let cons = constructors.get(*index).unwrap();
             self.constructor_signatures
-                .insert(name.to_owned(), cons.to_owned());
+                .insert(name.to_owned(), (cons.to_owned(), *index));
         }
     }
 }

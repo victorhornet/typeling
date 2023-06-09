@@ -54,7 +54,7 @@ impl<'lexer, 'input, 'ctx, 'a> TypeSystem<'input, 'ctx, 'a> {
         for item in file.items.iter() {
             match item {
                 Item::TypeDecl(gadt) => {
-                    for constructor in gadt.constructors.keys() {
+                    for constructor in gadt.get_tags().keys() {
                         self.ctx.add_type_constructor(constructor, gadt);
                     }
                 }
@@ -105,12 +105,8 @@ mod tests {
     #[test]
     fn test_gadt() {
         let unit1_name = "Unit1";
-        let mut unit1 = GADT {
-            name: unit1_name.to_owned(),
-            generics: vec![],
-            constructors: HashMap::new(),
-        };
-        unit1.constructors.insert(
+        let mut unit1 = GADT::new(unit1_name.to_owned(), vec![], HashMap::new());
+        unit1.add_constructor(
             unit1_name.to_owned(),
             GADTConstructorBuilder::new(&unit1_name)
                 .unit_fields()
@@ -143,7 +139,7 @@ pub fn constructor_to_type<'ctx>(
 
 pub fn gadt_to_type<'ctx>(gadt: &GADT, context: &'ctx Context) -> StructType<'ctx> {
     let t = context.opaque_struct_type(&gadt.name);
-    for constructor in gadt.constructors.values() {
+    for constructor in gadt.get_constructors().iter() {
         constructor_to_type(constructor, context);
     }
     let tag = context.i64_type();

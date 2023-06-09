@@ -8,7 +8,8 @@ use super::size_of;
 pub struct GADT {
     pub name: String,
     pub generics: Vec<String>,
-    pub constructors: HashMap<String, GADTConstructor>,
+    constructors: Vec<GADTConstructor>,
+    tags: HashMap<String, usize>,
 }
 
 impl GADT {
@@ -17,23 +18,34 @@ impl GADT {
         generics: Vec<String>,
         constructors: HashMap<String, GADTConstructor>,
     ) -> Self {
+        let constructors = constructors
+            .values()
+            .cloned()
+            .collect::<Vec<GADTConstructor>>();
+        let mut tags = HashMap::new();
+        for (i, constructor) in constructors.iter().enumerate() {
+            tags.insert(constructor.name.clone(), i);
+        }
         Self {
             name,
             generics,
             constructors,
+            tags,
         }
     }
     pub fn add_constructor(&mut self, name: String, constructor: GADTConstructor) {
-        self.constructors.insert(name, constructor);
+        let i = self.constructors.len();
+        self.tags.insert(name, i);
+        self.constructors.push(constructor);
     }
     pub fn replace_shorthand(&mut self) -> Result<(), String> {
-        if let Some(ref mut shorthand_constructor) = self.constructors.remove("@") {
-            if self.constructors.contains_key(&self.name) {
+        if let Some(i) = self.tags.remove("@") {
+            if self.tags.contains_key(&self.name) {
                 return Err(self.name.to_owned());
             };
+            let shorthand_constructor = &mut self.constructors[i];
             shorthand_constructor.set_name(&self.name);
-            self.constructors
-                .insert(self.name.clone(), shorthand_constructor.clone());
+            self.tags.insert(self.name.clone(), i);
         }
         Ok(())
     }
@@ -43,9 +55,21 @@ impl GADT {
 
     pub fn get_max_constructor(&self) -> &GADTConstructor {
         self.constructors
-            .values()
+            .iter()
             .max_by_key(|c| c.get_size())
             .unwrap()
+    }
+    pub fn get_constructor_map(&self) -> HashMap<String, GADTConstructor> {
+        self.tags
+            .iter()
+            .map(|(name, i)| (name.clone(), self.constructors[*i].clone()))
+            .collect()
+    }
+    pub fn get_constructors(&self) -> &Vec<GADTConstructor> {
+        &self.constructors
+    }
+    pub fn get_tags(&self) -> &HashMap<String, usize> {
+        &self.tags
     }
 }
 
@@ -56,11 +80,7 @@ pub struct GADTBuilder {
 impl GADTBuilder {
     pub fn new(name: &str) -> Self {
         Self {
-            gadt: GADT {
-                name: name.to_owned(),
-                generics: vec![],
-                constructors: HashMap::new(),
-            },
+            gadt: GADT::new(name.to_owned(), vec![], HashMap::new()),
         }
     }
     pub fn generic(mut self, name: &str) -> Self {
@@ -243,7 +263,6 @@ impl GADTConstructorFields {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::ConstructorCallArgs;
 
     #[test]
     fn test_gadt_constructor_builder() {
@@ -299,10 +318,10 @@ mod tests {
             .build();
         assert_eq!(
             gadt,
-            GADT {
-                name: "A".to_owned(),
-                generics: vec!["a".to_owned(), "b".to_owned()],
-                constructors: vec![
+            GADT::new(
+                "A".to_owned(),
+                vec!["a".to_owned(), "b".to_owned()],
+                vec![
                     (
                         "A".to_owned(),
                         GADTConstructor {
@@ -335,7 +354,7 @@ mod tests {
                 ]
                 .into_iter()
                 .collect::<HashMap<String, GADTConstructor>>(),
-            }
+            )
         );
     }
 }
