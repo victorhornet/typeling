@@ -243,6 +243,23 @@ pub enum Expr {
     }, // PointerValue
 }
 
+impl Expr {
+    pub fn span(&self) -> &Span {
+        match self {
+            Expr::Int { span, .. } => span,
+            Expr::Float { span, .. } => span,
+            Expr::Bool { span, .. } => span,
+            Expr::String { span, .. } => span,
+            Expr::Function { span, .. } => span,
+            Expr::Var { span, .. } => span,
+            Expr::BinOp { span, .. } => span,
+            Expr::UnOp { span, .. } => span,
+            Expr::FunctionCall { span, .. } => span,
+            Expr::ConstructorCall { span, .. } => span,
+            Expr::MemberAccess { span, .. } => span,
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub enum MemberAccessType {
     Index(Span),
