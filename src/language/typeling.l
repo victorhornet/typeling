@@ -11,13 +11,15 @@ alias "ALIAS"
 let "LET"
 construct "CONSTRUCT"
 case "CASE"
-
+of "OF"
 
 [0-9]+ "INT_LIT"
 [0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*))f "FLOAT_LIT"
 \"([^\\\"]|\\[\'\"ntr])*\" "STRING_LIT"
 true "TRUE"
 false "FALSE"
+
+\_ "WILDCARD"
 
 \+ "PLUS"
 \- "MINUS"

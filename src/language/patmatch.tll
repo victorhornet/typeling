@@ -1,0 +1,43 @@
+
+type Option = Some i64 | None
+type List = Cons i64 List | Nil
+
+fn main() {
+    x : OptionI = Some(5);
+    y : OptionI = None;
+
+    z : i64 = case x { 
+        Some(i) => i,
+        None => 0,
+    };
+
+    case x {
+        Some(i) => {
+            printf("some");
+        },
+        None => 0,
+        _ => 100,
+    };
+}
+
+fn head(l: List) -> Option {
+    return case l {
+        Cons(i, _) => Some(i),
+        Nil => None,
+    };
+}
+
+fn tail(l: List) -> List {
+    return case l {
+        Cons(_, t) => t,
+        Nil => Nil,
+    };
+}
+
+fn third(l: List) -> Option {
+    return case l {
+        Cons(_, Cons(_, Cons(x, _))) => Some(x),
+        _ => None,
+    };
+}
+
