@@ -453,19 +453,14 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let value = self.visit_expr(expr)?.expect("expr must return a value");
                 let val = self.extract_value(value, expr);
 
-                let var_ptr = self
-                    .builder
-                    .build_alloca(var_type, var_name)
-                    .as_basic_value_enum();
-                self.builder.build_store(var_ptr.into_pointer_value(), val);
-                (var_ptr, true)
+                let var_ptr = self.builder.build_alloca(var_type, var_name);
+                self.builder.build_store(var_ptr, val);
+                (var_ptr.as_basic_value_enum(), true)
             }
-            None => (
-                self.builder
-                    .build_alloca(var_type, var_name)
-                    .as_basic_value_enum(),
-                false,
-            ),
+            None => {
+                let var_ptr = self.builder.build_alloca(var_type, var_name);
+                (var_ptr.as_basic_value_enum(), false)
+            }
         };
         self.compiler_ctx.basic_value_stack.insert(var_name, res);
         Ok(None)
@@ -791,7 +786,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .basic_value_stack
                     .get(var_name)
                     .unwrap_or_else(|| panic!("variable {var_name} not found"));
-                println!("var: {:?}", var);
                 Ok(Some(var))
             }
             Expr::String { value, .. } => {
@@ -844,18 +838,19 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             }
             Expr::ConstructorCall { name, args, .. } => {
                 let constructor_name = self.lexer.span_str(*name);
+                let err_msg = format!("constructor {} not found", constructor_name);
+
                 let (constructor_sig, tag) = self
                     .compiler_ctx
                     .constructor_signatures
                     .get(constructor_name)
-                    .expect("constructor must have been defined");
+                    .expect(&err_msg);
                 let llvm_constructor_name = "constructor_".to_owned() + constructor_name;
-
                 let gadt = self
                     .compiler_ctx
                     .type_constructors
                     .get(constructor_name)
-                    .expect("constructor must have been defined");
+                    .expect(&err_msg);
 
                 let gadt_name = &gadt.name;
 
@@ -928,7 +923,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let index = self.get_member_index(member);
 
                 if !e.get_type().get_element_type().is_struct_type() {
-                    println!("e_ptr: {:?}", e);
                     e = self.builder.build_load(e, "deref").into_pointer_value();
                 }
 

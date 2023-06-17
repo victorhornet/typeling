@@ -117,7 +117,7 @@ shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>
     }
     | "LPAREN" tuple_params "RPAREN" { 
         let mut map = HashMap::new();
-        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").unit_fields().build());
+        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").tuple_fields(&$2?).build());
         Ok(map) 
     }
     | struct_def { 
