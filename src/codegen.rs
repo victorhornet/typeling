@@ -302,6 +302,84 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         };
         index
     }
+
+    fn build_int_case(
+        &mut self,
+        patterns: &[(Pattern, CaseBranchBody)],
+        value: IntValue<'_>,
+    ) -> CodeGenResult<'ctx> {
+        let case_result_ptr = self
+            .builder
+            .build_alloca(self.llvm_ctx.i64_type(), "case_return");
+        let exit_block = self
+            .llvm_ctx
+            .append_basic_block(self.current_function.unwrap(), "after_case");
+        let else_block = self
+            .llvm_ctx
+            .append_basic_block(self.current_function.unwrap(), "case_else");
+        let current_block = self.builder.get_insert_block().unwrap();
+        let mut cases = vec![];
+        for (pattern, branch) in patterns.iter() {
+            match pattern {
+                Pattern::Value(inner_expr) => {
+                    let branch_block = self
+                        .llvm_ctx
+                        .append_basic_block(self.current_function.unwrap(), "branch"); //todo change block name if needed
+                    self.builder.position_at_end(branch_block);
+                    let branch_res = match branch {
+                        CaseBranchBody::Block(block) => self.visit_block(block)?,
+                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+                    };
+                    self.builder.build_store(
+                        case_result_ptr,
+                        branch_res
+                            .expect("branch should return a value, block doesn't do that yet"),
+                    );
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(exit_block);
+                    let inner_value = self
+                        .read_expr_value(inner_expr)?
+                        .expect("expr should return a value");
+                    if !inner_value.is_int_value() {
+                        panic!(
+                            "pattern value should be an int, got {}",
+                            inner_value.get_type()
+                        );
+                    }
+                    cases.push((inner_value.into_int_value(), branch_block));
+                }
+                Pattern::Ident(s) => {
+                    self.builder.position_at_end(else_block);
+
+                    let ident = self.lexer.span_str(*s);
+                    let ident_ptr = self.builder.build_alloca(self.llvm_ctx.i64_type(), ident);
+                    self.builder.build_store(ident_ptr, value);
+                    //todo ensure that ident is in scope stack
+
+                    let branch_res = match branch {
+                        CaseBranchBody::Block(block) => self.visit_block(block)?,
+                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+                    };
+                    self.builder.build_store(
+                        case_result_ptr,
+                        branch_res
+                            .expect("branch should return a value, block doesn't do that yet"),
+                    );
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(exit_block);
+                    break;
+                }
+                Pattern::Wildcard => todo!("build block and break loop"),
+                p => {
+                    panic!("unsupported pattern in case expression for i64: {p:?}",)
+                }
+            }
+        }
+        self.builder.position_at_end(current_block);
+        self.builder.build_switch(value, else_block, &cases);
+        self.builder.position_at_end(exit_block);
+        Ok(Some(case_result_ptr.into()))
+    }
 }
 
 #[allow(unused_variables)]
@@ -944,42 +1022,14 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 patterns,
                 span,
             } => {
-                let e = self.visit_expr(expr)?.unwrap().into_struct_value();
-                let res_ptr = self
-                    .builder
-                    .build_alloca(self.llvm_ctx.i64_type(), "case_return");
-
-                // self.builder.build_switch(value, else_block, cases)
-
-                let res = patterns
-                    .iter()
-                    .map(|(pattern, branch)| -> (IntValue<'ctx>, BasicBlock<'ctx>) {
-                        match pattern {
-                            Pattern::Wildcard => todo!(),
-                            Pattern::Value(inner_expr) => todo!(),
-                            Pattern::Ident(_) => todo!(),
-                            Pattern::TypeIdent(span, args) => {
-                                let name = "constructor_".to_string()
-                                    + self.lexer.span_str(span.to_owned());
-                                let llvm_type = self.llvm_ctx.get_struct_type(&name).unwrap();
-
-                                // let tag_ptr = self
-                                //     .builder
-                                //     .build_struct_gep(llvm_type, 0, "tag_ptr")
-                                //     .unwrap();
-                                let tag = self.llvm_ctx.i64_type().const_int(0, false);
-                                let basic_block = self.llvm_ctx.append_basic_block(
-                                    self.current_function.unwrap(),
-                                    "case_branch",
-                                );
-                                //todo build inner switch according to pattern arguments
-
-                                (tag, basic_block)
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                Ok(None)
+                let expr_value = self.read_expr_value(expr)?.unwrap();
+                match expr_value {
+                    BasicValueEnum::IntValue(value) => self.build_int_case(patterns, value),
+                    BasicValueEnum::StructValue(_) | BasicValueEnum::PointerValue(_) => {
+                        todo!("case on adt");
+                    }
+                    _ => panic!("unsupported case expr type"),
+                }
             }
             e => unimplemented!("{e:?}"),
         }

@@ -16,3 +16,4 @@ fn main() -> i64 {
     list1: SList = Node(head=10, tail=Node(head=20, tail=Nil));
     return 0;
 }
+
