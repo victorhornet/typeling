@@ -1,0 +1,29 @@
+
+type BinTree = Nil | Node i64 BinTree BinTree
+
+type Enum = A | B i64 | C i64 i64
+
+type Int = Int i64
+
+fn main() -> i64 {
+    root: BinTree = Node (1, Node (2, Nil, Nil), Node (3, Nil, Nil));
+    left: BinTree = left(root);
+    left.0 = 100;
+    return root.1.0;
+}
+
+fn pass_by_ref(x: Int) {
+    x.0 = 10;
+}
+
+fn left(x: BinTree) -> BinTree {
+    return x.1;
+}
+
+fn right(x: BinTree) -> BinTree {
+    return x.2;
+}
+
+fn check(x: i64, z: Enum) -> i64 {
+    return x == z.0;
+}

@@ -1,8 +1,9 @@
-use std::{error::Error, mem, path::Path};
+use std::{error::Error, path::Path};
 
 // globals definer -> type checker -> code generation
 
 use inkwell::{
+    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     execution_engine::JitFunction,
@@ -62,8 +63,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
     pub fn compile(&mut self, file: &File, args: &Args) {
-        self.define_items(file);
-
+        self.define_types(file);
+        self.define_functions(file);
         self.walk_file(file);
 
         if !args.no_verify {
@@ -114,7 +115,28 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .build_ptr_to_int(size, self.llvm_ctx.i32_type(), "size_int")
         }
     }
-
+    fn extract_value(
+        &mut self,
+        expr_value_or_pointer: BasicValueEnum<'ctx>,
+        expr: &Expr,
+    ) -> BasicValueEnum<'ctx> {
+        // println!("expr_value_or_pointer: {:?}", expr_value_or_pointer);
+        let val = match expr {
+            Expr::Var { .. } | Expr::MemberAccess { .. } => {
+                //todo extract this to function
+                let ptr = expr_value_or_pointer.into_pointer_value();
+                if !ptr.get_type().get_element_type().is_struct_type() {
+                    self.builder
+                        .build_load(expr_value_or_pointer.into_pointer_value(), "assign_deref")
+                } else {
+                    expr_value_or_pointer
+                }
+            }
+            _ => expr_value_or_pointer,
+        };
+        // println!("val: {:?}", val);
+        val
+    }
     fn _build_offsetof(&self, t: &dyn BasicType<'ctx>, i: u64) -> IntValue<'ctx> {
         unsafe {
             let ptr = t.ptr_type(AddressSpace::default()).const_null();
@@ -137,7 +159,18 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         Ok(res)
     }
 
-    fn define_items(&mut self, file: &File) {
+    fn define_types(&mut self, file: &File) {
+        for item in &file.items {
+            match item {
+                Item::TypeDecl(type_decl) => {
+                    self.visit_type_decl(type_decl).unwrap();
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    fn define_functions(&mut self, file: &File) {
         for item in &file.items {
             match item {
                 Item::FunctionDecl(function_decl) => {
@@ -158,16 +191,17 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                     BasicMetadataTypeEnum::IntType(self.llvm_ctx.i64_type())
                                 }
                                 Type::Float => {
-                                    BasicMetadataTypeEnum::FloatType(self.llvm_ctx.f64_type())
+                                    todo!("future work: float type");
                                 }
                                 Type::Bool => {
-                                    BasicMetadataTypeEnum::IntType(self.llvm_ctx.bool_type())
+                                    todo!("future work: bool type")
                                 }
-                                Type::String(_) => todo!("string type"),
+                                Type::String(_) => todo!("future work: constant string type"),
                                 Type::Ident(name) => self
                                     .llvm_ctx
                                     .get_struct_type(name.as_str())
                                     .unwrap_or_else(|| panic!("type {} not found", name))
+                                    .ptr_type(AddressSpace::default())
                                     .into(),
                                 _ => unimplemented!(),
                             };
@@ -185,23 +219,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                             .llvm_ctx
                             .get_struct_type(name.as_str())
                             .unwrap_or_else(|| panic!("type {} not found", name))
+                            .ptr_type(AddressSpace::default())
                             .fn_type(&params, false),
                         _ => unimplemented!(),
                     };
                     let fn_value = self.module.add_function(fn_name, fn_type, None);
                     self.compiler_ctx.function_values.insert(fn_name, fn_value);
                 }
-                Item::TypeDecl(type_decl) => {
-                    continue;
-                    // let _type_name = &type_decl.name;
-                    // todo!("type decl");
-                }
-                Item::AliasDecl(alias_decl) => {
-                    let _alias_name = self.lexer.span_str(alias_decl.name);
-                    let _alias_type = self.get_basic_type(&alias_decl.original);
-                    // self.context.add_type_alias(alias_type, alias_name);
-                    todo!("alias type")
-                }
+                _ => continue,
             }
         }
     }
@@ -288,8 +313,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
     fn visit_item(&mut self, item: &Item) -> CodeGenResult<'ctx> {
         match item {
             Item::FunctionDecl(function_decl) => self.visit_function_decl(function_decl)?,
-            Item::TypeDecl(type_decl) => self.visit_type_decl(type_decl)?,
             Item::AliasDecl(alias_decl) => self.visit_alias_decl(alias_decl)?,
+            Item::TypeDecl(type_decl) => None,
         };
         Ok(None)
     }
@@ -309,7 +334,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             param_value.set_name(param_name);
             self.compiler_ctx
                 .basic_value_stack
-                .insert(param_name, param_value);
+                .insert(param_name, (param_value, true));
         }
 
         let entry_basic_block = self.llvm_ctx.append_basic_block(*fn_value, "entry");
@@ -346,29 +371,36 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::Print(print) => todo!("codegen print"),
         }
     }
+
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
         //todo change this
-        let var_value_or_pointer = self
+        let expr_value_or_pointer = self
             .visit_expr(&assign.value)?
             .expect("expr must return a value");
-        let var_value = self.load_ptr_or_read(var_value_or_pointer);
 
+        let val = self.extract_value(expr_value_or_pointer, &assign.value);
         let var = match assign.target.clone() {
             Expr::Var { name, .. } => {
                 let var_name = self.lexer.span_str(name);
-                self.compiler_ctx
+                let (value, _) = self
+                    .compiler_ctx
                     .basic_value_stack
                     .get(var_name)
-                    .unwrap_or_else(|| panic!("variable {var_name} not found"))
-                    .into_pointer_value()
+                    .unwrap_or_else(|| panic!("variable {var_name} not found"));
+                value.into_pointer_value()
             }
             Expr::MemberAccess { expr, member, .. } => {
-                let ptr = self
+                let mut ptr = self
                     .visit_expr(expr.as_ref())?
                     .expect("expr must return a pointer value")
                     .into_pointer_value();
-
-                let inner_ptr = self.builder.build_struct_gep(ptr, 1, "inner_ptr").unwrap();
+                if !ptr.get_type().get_element_type().is_struct_type() {
+                    ptr = self.builder.build_load(ptr, "deref").into_pointer_value();
+                }
+                let inner_ptr = self
+                    .builder
+                    .build_struct_gep(ptr, 1, "inner_ptr")
+                    .expect("member does not exist");
 
                 let index = self.get_member_index(&member);
                 //todo bitcast inner_ptr to variant type
@@ -383,7 +415,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             _ => panic!("assign target not supported"),
         };
 
-        self.builder.build_store(var, var_value);
+        self.builder.build_store(var, val);
 
         Ok(None)
     }
@@ -404,40 +436,38 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let var_type: BasicTypeEnum = match &var_decl.var_type {
             Some(Type::Unit) => panic!("cannot declare a variable of type unit"),
             Some(Type::Int) => self.llvm_ctx.i64_type().into(),
-            Some(Type::Float) => self.llvm_ctx.f64_type().into(),
-            Some(Type::Bool) => self.llvm_ctx.bool_type().into(),
-            Some(Type::String(_)) => todo!("string type"),
+            Some(Type::Float) => todo!("future work: f64 variables"),
+            Some(Type::Bool) => todo!("future work: i1 variables"),
+            Some(Type::String(_)) => todo!("future work: constant string variables"),
             Some(Type::Ident(name)) => self
                 .llvm_ctx
                 .get_struct_type(name)
                 .unwrap_or_else(|| panic!("type {} does not exist", name))
+                .ptr_type(AddressSpace::default())
                 .into(),
             Some(t) => unimplemented!("{:?}", t),
             None => todo!("type inference"),
         };
-        let var_ptr = match &var_decl.value {
+        let res = match &var_decl.value {
             Some(expr) => {
                 let value = self.visit_expr(expr)?.expect("expr must return a value");
-                if value.is_pointer_value() {
-                    value
-                } else {
-                    let var_ptr = self
-                        .builder
-                        .build_alloca(var_type, var_name)
-                        .as_basic_value_enum();
-                    self.builder
-                        .build_store(var_ptr.into_pointer_value(), value);
-                    var_ptr
-                }
+                let val = self.extract_value(value, expr);
+
+                let var_ptr = self
+                    .builder
+                    .build_alloca(var_type, var_name)
+                    .as_basic_value_enum();
+                self.builder.build_store(var_ptr.into_pointer_value(), val);
+                (var_ptr, true)
             }
-            None => self
-                .builder
-                .build_alloca(var_type, var_name)
-                .as_basic_value_enum(),
+            None => (
+                self.builder
+                    .build_alloca(var_type, var_name)
+                    .as_basic_value_enum(),
+                false,
+            ),
         };
-        self.compiler_ctx
-            .basic_value_stack
-            .insert(var_name, var_ptr.as_basic_value_enum());
+        self.compiler_ctx.basic_value_stack.insert(var_name, res);
         Ok(None)
     }
     fn visit_return(&mut self, return_: &Return) -> CodeGenResult<'ctx> {
@@ -470,8 +500,17 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let comparison = self
             .read_expr_value(&while_.condition)?
             .expect("expr must return a value");
+        if !comparison.is_int_value() {
+            panic!("if condition must be an int value")
+        }
+
+        let condition = self.builder.build_int_truncate(
+            comparison.into_int_value(),
+            self.llvm_ctx.bool_type(),
+            "condition",
+        );
         self.builder
-            .build_conditional_branch(comparison.into_int_value(), body_block, merge_block);
+            .build_conditional_branch(condition, body_block, merge_block);
         self.builder.position_at_end(body_block);
         self.visit_block(&while_.body)?;
         self.builder.build_unconditional_branch(while_block);
@@ -490,8 +529,18 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         let comparison = self
             .read_expr_value(&if_.condition)?
             .expect("expr must return a value");
+
+        if !comparison.is_int_value() {
+            panic!("if condition must be an int value")
+        }
+
+        let condition = self.builder.build_int_truncate(
+            comparison.into_int_value(),
+            self.llvm_ctx.bool_type(),
+            "condition",
+        );
         self.builder
-            .build_conditional_branch(comparison.into_int_value(), then_block, else_block);
+            .build_conditional_branch(condition, then_block, else_block);
         let merge_block = self.llvm_ctx.append_basic_block(
             self.current_function.expect("current_function must be set"),
             "merge",
@@ -518,9 +567,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let rhs = self
                     .read_expr_value(rhs)?
                     .expect("expr should return a value");
-                //todo support other types
+                //future work: support other types
                 match op {
-                    //ints, floats, strings
                     BinOp::Add(_) => {
                         let result = self.builder.build_int_add(
                             lhs.into_int_value(),
@@ -537,7 +585,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    //ints, floats
                     BinOp::Mul(_) => {
                         let res = self.builder.build_int_mul(
                             lhs.into_int_value(),
@@ -554,7 +601,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    // ints
                     BinOp::Mod(_) => {
                         let res = self.builder.build_int_signed_rem(
                             lhs.into_int_value(),
@@ -563,15 +609,53 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         );
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    // ints, floats, bools, strings
                     BinOp::Eq(_) => {
-                        let res = self.builder.build_int_compare(
-                            IntPredicate::EQ,
-                            lhs.into_int_value(),
-                            rhs.into_int_value(),
-                            "eq",
-                        );
-                        Ok(Some(res.as_basic_value_enum()))
+                        match (lhs, rhs) {
+                            (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
+                                let res = self.builder.build_int_compare(
+                                    IntPredicate::EQ,
+                                    lhs,
+                                    rhs,
+                                    "eq",
+                                );
+                                let res = self.builder.build_int_cast(
+                                    res,
+                                    self.llvm_ctx.i64_type(),
+                                    "eq_i64",
+                                );
+                                Ok(Some(res.as_basic_value_enum()))
+                            }
+                            (
+                                BasicValueEnum::PointerValue(lhs),
+                                BasicValueEnum::PointerValue(rhs),
+                            ) => {
+                                //naive pointer equality
+                                //todo equality for ADT, first comparing tag, then comparing fields
+                                let lhs = self.builder.build_ptr_to_int(
+                                    lhs,
+                                    self.llvm_ctx.i64_type(),
+                                    "lhs_ptr_to_int",
+                                );
+                                let rhs = self.builder.build_ptr_to_int(
+                                    rhs,
+                                    self.llvm_ctx.i64_type(),
+                                    "rhs_ptr_to_int",
+                                );
+                                let res = self.builder.build_int_compare(
+                                    IntPredicate::EQ,
+                                    lhs,
+                                    rhs,
+                                    "eq",
+                                );
+                                let res = self.builder.build_int_cast(
+                                    res,
+                                    self.llvm_ctx.i64_type(),
+                                    "eq_i64",
+                                );
+                                Ok(Some(res.as_basic_value_enum()))
+                            }
+                            _ => Ok(None),
+                        }
                     }
                     BinOp::Neq(_) => {
                         let res = self.builder.build_int_compare(
@@ -580,9 +664,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "neq",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "neq_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
-                    // ints, floats
                     BinOp::Gt(_) => {
                         let res = self.builder.build_int_compare(
                             IntPredicate::SGT,
@@ -590,6 +676,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "gt",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "gt_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     BinOp::Gte(_) => {
@@ -599,6 +688,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "gte",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "gte_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     BinOp::Lt(_) => {
@@ -608,6 +700,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "lt",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "lt_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     BinOp::Lte(_) => {
@@ -617,6 +712,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "lte",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "lte_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     // bools
@@ -626,12 +724,18 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                             rhs.into_int_value(),
                             "and",
                         );
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "and_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     BinOp::Or(_) => {
                         let res =
                             self.builder
                                 .build_or(lhs.into_int_value(), rhs.into_int_value(), "or");
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "or_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                 }
@@ -655,6 +759,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     }
                     UnOp::Not(_) => {
                         let res = self.builder.build_not(expr.into_int_value(), "not");
+                        let res =
+                            self.builder
+                                .build_int_cast(res, self.llvm_ctx.i64_type(), "not_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                 }
@@ -662,7 +769,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Expr::Int { value, .. } => Ok(Some(
                 self.llvm_ctx
                     .i64_type()
-                    .const_int(*value as u64, false)
+                    .const_int(*value as u64, true)
                     .as_basic_value_enum(),
             )),
             Expr::Float { value, .. } => Ok(Some(
@@ -679,11 +786,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             )),
             Expr::Var { name, .. } => {
                 let var_name = self.lexer.span_str(*name);
-                let var = self
+                let (var, initialized) = self
                     .compiler_ctx
                     .basic_value_stack
                     .get(var_name)
                     .unwrap_or_else(|| panic!("variable {var_name} not found"));
+                println!("var: {:?}", var);
                 Ok(Some(var))
             }
             Expr::String { value, .. } => {
@@ -797,8 +905,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 for (i, expr) in params {
                     self.assign_adt_field(expr, inner_ptr, i)?;
                 }
+                // let res_ptr = self.builder.build_alloca(struct_ptr.get_type(), "res_ptr");
                 Ok(Some(struct_ptr.as_basic_value_enum()))
             }
+
+            //revino aici
             Expr::MemberAccess { expr, member, .. } => {
                 // ? need to figure out how to get adt type, specific tag and llvm type from expr
                 // match **expr {
@@ -815,12 +926,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .into_pointer_value();
 
                 let index = self.get_member_index(member);
+
                 if !e.get_type().get_element_type().is_struct_type() {
-                    if !e.get_type().get_element_type().is_pointer_type() {
-                        panic!("member access on non pointer type");
-                    }
+                    println!("e_ptr: {:?}", e);
                     e = self.builder.build_load(e, "deref").into_pointer_value();
                 }
+
                 let temp_inner_ptr = self
                     .builder
                     .build_struct_gep(e, 1, "temp_inner_ptr")
@@ -834,17 +945,59 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .unwrap();
                 Ok(Some(value.as_basic_value_enum()))
             }
+            Expr::Case {
+                expr,
+                patterns,
+                span,
+            } => {
+                let e = self.visit_expr(expr)?.unwrap().into_struct_value();
+                let res_ptr = self
+                    .builder
+                    .build_alloca(self.llvm_ctx.i64_type(), "case_return");
+
+                // self.builder.build_switch(value, else_block, cases)
+
+                let res = patterns
+                    .iter()
+                    .map(|(pattern, branch)| -> (IntValue<'ctx>, BasicBlock<'ctx>) {
+                        match pattern {
+                            Pattern::Wildcard => todo!(),
+                            Pattern::Value(inner_expr) => todo!(),
+                            Pattern::Ident(_) => todo!(),
+                            Pattern::TypeIdent(span, args) => {
+                                let name = "constructor_".to_string()
+                                    + self.lexer.span_str(span.to_owned());
+                                let llvm_type = self.llvm_ctx.get_struct_type(&name).unwrap();
+
+                                // let tag_ptr = self
+                                //     .builder
+                                //     .build_struct_gep(llvm_type, 0, "tag_ptr")
+                                //     .unwrap();
+                                let tag = self.llvm_ctx.i64_type().const_int(0, false);
+                                let basic_block = self.llvm_ctx.append_basic_block(
+                                    self.current_function.unwrap(),
+                                    "case_branch",
+                                );
+                                //todo build inner switch according to pattern arguments
+
+                                (tag, basic_block)
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                Ok(None)
+            }
             e => unimplemented!("{e:?}"),
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
         //todo map llvm_type -> gadt
         let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
-        // ! this was already done in the type checker phase
-        // for constructor in type_decl.get_tags().keys() {
-        //     self.compiler_ctx
-        //         .add_type_constructor(constructor, type_decl);
-        // }
+        // ! this is also done in the first type_definition_pass
+        for constructor in type_decl.get_tags().keys() {
+            self.compiler_ctx
+                .add_type_constructor(constructor, type_decl);
+        }
         self.compiler_ctx.add_constructor_signatures(type_decl);
         Ok(None)
     }

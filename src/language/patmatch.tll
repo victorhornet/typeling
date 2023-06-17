@@ -11,9 +11,10 @@ fn main() {
         None => 0,
     };
 
-    case x {
+    return case x {
         Some(i) => {
             printf("some");
+            return 0;
         },
         None => 0,
         _ => 100,
