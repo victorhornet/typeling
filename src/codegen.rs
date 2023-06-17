@@ -369,7 +369,22 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     self.builder.position_at_end(exit_block);
                     break;
                 }
-                Pattern::Wildcard => todo!("build block and break loop"),
+                Pattern::Wildcard => {
+                    self.builder.position_at_end(else_block);
+
+                    let branch_res = match branch {
+                        CaseBranchBody::Block(block) => self.visit_block(block)?,
+                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+                    };
+                    self.builder.build_store(
+                        case_result_ptr,
+                        branch_res
+                            .expect("branch should return a value, block doesn't do that yet"),
+                    );
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(exit_block);
+                    break;
+                }
                 p => {
                     panic!("unsupported pattern in case expression for i64: {p:?}",)
                 }
@@ -378,7 +393,10 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.position_at_end(current_block);
         self.builder.build_switch(value, else_block, &cases);
         self.builder.position_at_end(exit_block);
-        Ok(Some(case_result_ptr.into()))
+        let result = self
+            .builder
+            .build_load(case_result_ptr, "case_result_value");
+        Ok(Some(result))
     }
 }
 
