@@ -1,0 +1,19 @@
+
+type Unit
+type Tuple(i64,i64)
+type Struct { a: i64, b: i64 }
+type List = List(i64, List) | Empty
+
+
+type SList = Node { head: i64, tail: SList } | Nil
+
+fn main() -> i64 {
+    x: Unit = Unit;
+    y: Tuple = Tuple(1,2);
+    z: Struct = Struct(b=2,a=1);
+
+    list2: SList = Node(10, Node(20, Nil));
+    list1: SList = Node(head=10, tail=Node(head=20, tail=Nil));
+    return 0;
+}
+

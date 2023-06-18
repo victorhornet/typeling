@@ -1,0 +1,125 @@
+type Option = Some i64 | None
+type Result = Ok i64 | Err i64
+
+type Test = Test(i64, i64)
+
+type Wrapper(Test)
+
+type List = Cons i64 List | Nil
+
+fn main() -> i64 {
+    l: List = Cons (0, Cons (1, Cons (2, Cons (3, Cons (4, Nil)))));   
+    s: i64 = sum(l);
+    return s + unwrap_or_default(head(l));
+}
+
+fn sum(l: List) -> i64 {
+    s: i64 = 0;
+    z: List = l;
+
+    while not is_empty(z) {
+        s = s + unwrap_or_default(head(z));
+        z = tail(z);
+    }
+    return s;
+}
+
+fn is_empty(l: List) -> i64 {
+    return case l {
+        Nil => -1,
+        _ => 0,
+    };
+}
+
+fn head(l: List) -> Option {
+    return case l {
+        Cons(x, _) => Some(x),
+        Nil => None,
+        _ => None,
+    };
+}
+
+fn tail(l: List) -> List {
+    return case l {
+        Cons(_, xs) => xs,
+        Nil => Nil,
+        _ => Nil,
+    };
+}
+
+fn wrapper(w: Wrapper) -> i64 {
+    return case w {
+        Wrapper(Test(3, 6)) => 1000,
+        Wrapper(Test(x, 69)) => x,
+        Wrapper(Test(y, 100)) => y*2,
+        Wrapper(_) => -404,
+        _ => -1,
+    };
+}
+
+fn adt_extract(w: Wrapper) -> Test {
+    return case w {
+        Wrapper(t) => t,
+        _ => Test(0, 0),
+    };
+}
+
+fn ten_or_else(t: Test) -> i64 {
+    return case t {
+        Test(10, _) => 10,
+        Test(8, x) => x,
+        _ => 0,
+    };
+}
+
+
+fn unwrap_or(o: Option, d: i64) -> i64 {
+    return case o {
+        Some(x) => x,
+        None => d,
+        _ => 0,
+    };
+}
+
+fn is_some(o: Option) -> i64 {
+    return case o {
+        Some(_) => -1,
+        _ => 0,
+    };
+}
+
+fn is_none(o: Option) -> i64 {
+    return case o {
+        None => -1,
+        _ => 0,
+    };
+}
+
+fn is_five(o: Option) -> i64 {
+    return case o {
+        Some(5) => -1,
+        _ => 0,
+    };
+}
+
+fn unwrap_or_default(o: Option) -> i64 {
+    return case o {
+        Some(x) => x,
+        None => 0,
+        _ => 0,
+    };
+}
+
+fn useless_case(o: Option) -> i64 {
+    return case o {
+        x => 0,
+    };
+}
+
+fn int_case(x: i64) -> i64 {
+    return case x {
+        420 => 100,
+        32 => 142,
+        t => t,
+    };
+}

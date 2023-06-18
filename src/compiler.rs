@@ -73,7 +73,7 @@ pub struct CompilerContext<'input, 'ctx> {
     pub constructor_signatures: HashMap<String, (GADTConstructor, usize)>,
     pub types: HashMap<String, Type>,
     pub aliases: HashMap<String, String>,
-    pub basic_value_stack: Stack<'input, BasicValueEnum<'ctx>>,
+    pub basic_value_stack: Stack<'input, (BasicValueEnum<'ctx>, bool)>,
     pub function_values: HashMap<&'input str, FunctionValue<'ctx>>,
 }
 

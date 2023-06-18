@@ -241,22 +241,30 @@ pub enum Expr {
         member: MemberAccessType,
         span: Span,
     }, // PointerValue
+    Case {
+        span: Span,
+        expr: Box<Expr>,
+        patterns: Vec<CaseBranch>,
+    },
 }
+
+pub type CaseBranch = (Pattern, CaseBranchBody);
 
 impl Expr {
     pub fn span(&self) -> &Span {
         match self {
-            Expr::Int { span, .. } => span,
-            Expr::Float { span, .. } => span,
-            Expr::Bool { span, .. } => span,
-            Expr::String { span, .. } => span,
-            Expr::Function { span, .. } => span,
-            Expr::Var { span, .. } => span,
-            Expr::BinOp { span, .. } => span,
-            Expr::UnOp { span, .. } => span,
-            Expr::FunctionCall { span, .. } => span,
-            Expr::ConstructorCall { span, .. } => span,
-            Expr::MemberAccess { span, .. } => span,
+            Expr::Int { span, .. }
+            | Expr::Float { span, .. }
+            | Expr::Bool { span, .. }
+            | Expr::String { span, .. }
+            | Expr::Function { span, .. }
+            | Expr::Var { span, .. }
+            | Expr::BinOp { span, .. }
+            | Expr::UnOp { span, .. }
+            | Expr::FunctionCall { span, .. }
+            | Expr::ConstructorCall { span, .. }
+            | Expr::MemberAccess { span, .. }
+            | Expr::Case { span, .. } => span,
         }
     }
 }
@@ -296,14 +304,23 @@ pub enum IndentationLevel {
     None,
 }
 
+#[derive(Debug, Clone)]
 pub enum Pattern {
     Wildcard,
+    Value(Expr),
     Ident(Span),
     TypeIdent(Span, TypePatternArgs),
 }
 
+#[derive(Debug, Clone)]
 pub enum TypePatternArgs {
     None,
     Tuple(Vec<Pattern>),
     Struct(HashMap<String, Pattern>),
+}
+
+#[derive(Debug, Clone)]
+pub enum CaseBranchBody {
+    Expr(Expr),
+    Block(Block),
 }

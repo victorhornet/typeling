@@ -1,342 +1,640 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-%Enum = type { i64, %constructor_C }
-%constructor_C = type { i64, i64 }
-%constructor_A = type {}
-%constructor_B = type { i64 }
 %List = type { i64, %constructor_Cons }
 %constructor_Cons = type { i64, %List* }
 %constructor_Nil = type {}
-%BinTree = type { i64, %constructor_Node }
-%constructor_Node = type { i64, %BinTree*, %BinTree* }
-%constructor_Leaf = type {}
-%Loop = type { i64, %constructor_Loop }
-%constructor_Loop = type { i64, %Loop* }
-%constructor_Temp = type {}
-%OptionalInt = type { i64, %constructor_SomeI }
-%constructor_SomeI = type { i64 }
-%constructor_NoneI = type {}
-%OptionalTuple = type { i64, %constructor_SomeT }
-%constructor_SomeT = type { %Tuple* }
-%Tuple = type { i64, %constructor_Tuple }
-%constructor_Tuple = type { i64, i64 }
+%Option = type { i64, %constructor_Some }
+%constructor_Some = type { i64 }
+%constructor_None = type {}
+%Wrapper = type { i64, %constructor_Wrapper }
+%constructor_Wrapper = type { %Test* }
+%Test = type { i64, %constructor_Test }
+%constructor_Test = type { i64, i64 }
 
 declare i64 @printf(i8*, ...)
 
-define i64 @enums() {
+define i64 @main() {
 entry:
-  %gadt = alloca %Enum, align 8
-  %tag_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 0
-  store i64 1, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_C* %temp_inner_ptr to %constructor_A*
-  %gadt1 = alloca %Enum, align 8
-  %tag_ptr2 = getelementptr inbounds %Enum, %Enum* %gadt1, i32 0, i32 0
-  store i64 2, i64* %tag_ptr2, align 4
-  %temp_inner_ptr3 = getelementptr inbounds %Enum, %Enum* %gadt1, i32 0, i32 1
-  %inner_ptr4 = bitcast %constructor_C* %temp_inner_ptr3 to %constructor_B*
-  %param = getelementptr inbounds %constructor_B, %constructor_B* %inner_ptr4, i32 0, i32 0
-  store i64 1, i64* %param, align 4
-  %gadt5 = alloca %Enum, align 8
-  %tag_ptr6 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  store i64 0, i64* %tag_ptr6, align 4
-  %temp_inner_ptr7 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %param8 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr7, i32 0, i32 1
-  store i64 20, i64* %param8, align 4
-  %param9 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr7, i32 0, i32 0
-  store i64 10, i64* %param9, align 4
-  %gadt10 = alloca %Enum, align 8
-  %tag_ptr11 = getelementptr inbounds %Enum, %Enum* %gadt10, i32 0, i32 0
-  store i64 0, i64* %tag_ptr11, align 4
-  %temp_inner_ptr12 = getelementptr inbounds %Enum, %Enum* %gadt10, i32 0, i32 1
-  %param13 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr12, i32 0, i32 0
-  store i64 10, i64* %param13, align 4
-  %param14 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr12, i32 0, i32 1
-  store i64 20, i64* %param14, align 4
-  %temp_inner_ptr15 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %tag = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  %member_access = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr15, i32 0, i32 0
-  %temp_inner_ptr16 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %tag17 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  %member_access18 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr16, i32 0, i32 1
-  %load = load i64, i64* %member_access, align 4
-  %load19 = load i64, i64* %member_access18, align 4
-  %add = add i64 %load, %load19
-  %z = alloca i64, align 8
-  store i64 %add, i64* %z, align 4
-  %load20 = load i64, i64* %z, align 4
-  %load21 = load i64, i64* %member_access18, align 4
-  %add22 = add i64 %load20, %load21
-  store i64 %add22, i64* %z, align 4
-  %gadt23 = alloca %Enum, align 8
-  %tag_ptr24 = getelementptr inbounds %Enum, %Enum* %gadt23, i32 0, i32 0
-  store i64 0, i64* %tag_ptr24, align 4
-  %temp_inner_ptr25 = getelementptr inbounds %Enum, %Enum* %gadt23, i32 0, i32 1
-  %param26 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr25, i32 0, i32 1
-  store i64 100, i64* %param26, align 4
-  %param27 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr25, i32 0, i32 0
-  %temp_inner_ptr28 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %tag29 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  %member_access30 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr28, i32 0, i32 0
-  %load31 = load i64, i64* %member_access30, align 4
-  store i64 %load31, i64* %param27, align 4
-  %load32 = load %Enum, %Enum* %gadt23, align 4
-  store %Enum %load32, %Enum* %gadt5, align 4
-  %temp_inner_ptr33 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %tag34 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  %member_access35 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr33, i32 0, i32 0
-  %load36 = load i64, i64* %member_access35, align 4
-  %temp_inner_ptr37 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %tag38 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  %member_access39 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr37, i32 0, i32 1
-  %load40 = load i64, i64* %member_access39, align 4
-  %add41 = add i64 %load36, %load40
-  ret i64 %add41
-}
-
-define i64 @list() {
-entry:
-  %gadt = alloca %List, align 8
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i32 0, i32 0
-  store i64 1, i64* %tag_ptr, align 4
+  store i64 0, i64* %tag_ptr, align 4
   %temp_inner_ptr = getelementptr inbounds %List, %List* %gadt, i32 0, i32 1
   %param = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr, i32 0, i32 0
-  store i64 1, i64* %param, align 4
+  store i64 0, i64* %param, align 4
   %param1 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr, i32 0, i32 1
-  %gadt2 = alloca %List, align 8
-  %tag_ptr3 = getelementptr inbounds %List, %List* %gadt2, i32 0, i32 0
-  store i64 1, i64* %tag_ptr3, align 4
-  %temp_inner_ptr4 = getelementptr inbounds %List, %List* %gadt2, i32 0, i32 1
-  %param5 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr4, i32 0, i32 0
-  store i64 2, i64* %param5, align 4
-  %param6 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr4, i32 0, i32 1
-  %gadt7 = alloca %List, align 8
+  %malloccall2 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt3 = bitcast i8* %malloccall2 to %List*
+  %tag_ptr4 = getelementptr inbounds %List, %List* %gadt3, i32 0, i32 0
+  store i64 0, i64* %tag_ptr4, align 4
+  %temp_inner_ptr5 = getelementptr inbounds %List, %List* %gadt3, i32 0, i32 1
+  %param6 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr5, i32 0, i32 0
+  store i64 1, i64* %param6, align 4
+  %param7 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr5, i32 0, i32 1
+  %malloccall8 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt9 = bitcast i8* %malloccall8 to %List*
+  %tag_ptr10 = getelementptr inbounds %List, %List* %gadt9, i32 0, i32 0
+  store i64 0, i64* %tag_ptr10, align 4
+  %temp_inner_ptr11 = getelementptr inbounds %List, %List* %gadt9, i32 0, i32 1
+  %param12 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr11, i32 0, i32 0
+  store i64 2, i64* %param12, align 4
+  %param13 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr11, i32 0, i32 1
+  %malloccall14 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt15 = bitcast i8* %malloccall14 to %List*
+  %tag_ptr16 = getelementptr inbounds %List, %List* %gadt15, i32 0, i32 0
+  store i64 0, i64* %tag_ptr16, align 4
+  %temp_inner_ptr17 = getelementptr inbounds %List, %List* %gadt15, i32 0, i32 1
+  %param18 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr17, i32 0, i32 0
+  store i64 3, i64* %param18, align 4
+  %param19 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr17, i32 0, i32 1
+  %malloccall20 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt21 = bitcast i8* %malloccall20 to %List*
+  %tag_ptr22 = getelementptr inbounds %List, %List* %gadt21, i32 0, i32 0
+  store i64 0, i64* %tag_ptr22, align 4
+  %temp_inner_ptr23 = getelementptr inbounds %List, %List* %gadt21, i32 0, i32 1
+  %param24 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr23, i32 0, i32 0
+  store i64 4, i64* %param24, align 4
+  %param25 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr23, i32 0, i32 1
+  %malloccall26 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt27 = bitcast i8* %malloccall26 to %List*
+  %tag_ptr28 = getelementptr inbounds %List, %List* %gadt27, i32 0, i32 0
+  store i64 1, i64* %tag_ptr28, align 4
+  %temp_inner_ptr29 = getelementptr inbounds %List, %List* %gadt27, i32 0, i32 1
+  %inner_ptr = bitcast %constructor_Cons* %temp_inner_ptr29 to %constructor_Nil*
+  store %List* %gadt27, %List** %param25, align 8
+  store %List* %gadt21, %List** %param19, align 8
+  store %List* %gadt15, %List** %param13, align 8
+  store %List* %gadt9, %List** %param7, align 8
+  store %List* %gadt3, %List** %param1, align 8
+  %l = alloca %List*, align 8
+  store %List* %gadt, %List** %l, align 8
+  %load = load %List*, %List** %l, align 8
+  %call = call i64 @sum(%List* %load)
+  %s = alloca i64, align 8
+  store i64 %call, i64* %s, align 4
+  %load30 = load i64, i64* %s, align 4
+  %load31 = load %List*, %List** %l, align 8
+  %call32 = call %Option* @head(%List* %load31)
+  %call33 = call i64 @unwrap_or_default(%Option* %call32)
+  %add = add i64 %load30, %call33
+  ret i64 %add
+}
+
+define i64 @sum(%List* %l) {
+entry:
+  %s = alloca i64, align 8
+  store i64 0, i64* %s, align 4
+  %z = alloca %List*, align 8
+  store %List* %l, %List** %z, align 8
+  br label %while
+
+while:                                            ; preds = %body, %entry
+  %load = load %List*, %List** %z, align 8
+  %call = call i64 @is_empty(%List* %load)
+  %not = xor i64 %call, -1
+  %condition = trunc i64 %not to i1
+  br i1 %condition, label %body, label %merge
+
+body:                                             ; preds = %while
+  %load1 = load i64, i64* %s, align 4
+  %load2 = load %List*, %List** %z, align 8
+  %call3 = call %Option* @head(%List* %load2)
+  %call4 = call i64 @unwrap_or_default(%Option* %call3)
+  %add = add i64 %load1, %call4
+  store i64 %add, i64* %s, align 4
+  %load5 = load %List*, %List** %z, align 8
+  %call6 = call %List* @tail(%List* %load5)
+  store %List* %call6, %List** %z, align 8
+  br label %while
+
+merge:                                            ; preds = %while
+  %load7 = load i64, i64* %s, align 4
+  ret i64 %load7
+}
+
+define i64 @is_empty(%List* %l) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %List, %List* %l, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %List, %List* %l, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Nil_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Nil_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %Nil_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Nil_block:                                        ; preds = %entry
+  store i64 -1, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Nil_block1:                                       ; No predecessors!
+  br label %case_else
+}
+
+define %Option* @head(%List* %l) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %List, %List* %l, i32 0, i32 1
+  %tag_ptr17 = getelementptr inbounds %List, %List* %l, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr17, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Nil_block
+    i64 0, label %Cons_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Nil_block, %Cons_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  %case_result_adt_ptr = inttoptr i64 %case_result to %Option*
+  ret %Option* %case_result_adt_ptr
+
+case_else:                                        ; preds = %entry, %Cons_block1, %Nil_block4
+  %malloccall11 = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
+  %gadt12 = bitcast i8* %malloccall11 to %Option*
+  %tag_ptr13 = getelementptr inbounds %Option, %Option* %gadt12, i32 0, i32 0
+  store i64 0, i64* %tag_ptr13, align 4
+  %temp_inner_ptr14 = getelementptr inbounds %Option, %Option* %gadt12, i32 0, i32 1
+  %inner_ptr15 = bitcast %constructor_Some* %temp_inner_ptr14 to %constructor_None*
+  %ptr_value16 = ptrtoint %Option* %gadt12 to i64
+  store i64 %ptr_value16, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Cons_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Cons, %constructor_Cons* %inner_ptr, i32 0, i32 0
+  %param2 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %inner_ptr, i32 0, i32 1
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %Option*
+  %tag_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 0
+  store i64 1, i64* %tag_ptr, align 4
+  %temp_inner_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 1
+  %param3 = getelementptr inbounds %constructor_Some, %constructor_Some* %temp_inner_ptr, i32 0, i32 0
+  %load = load i64, i64* %param, align 4
+  store i64 %load, i64* %param3, align 4
+  %ptr_value = ptrtoint %Option* %gadt to i64
+  store i64 %ptr_value, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Nil_block:                                        ; preds = %entry
+  %malloccall5 = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
+  %gadt6 = bitcast i8* %malloccall5 to %Option*
+  %tag_ptr7 = getelementptr inbounds %Option, %Option* %gadt6, i32 0, i32 0
+  store i64 0, i64* %tag_ptr7, align 4
+  %temp_inner_ptr8 = getelementptr inbounds %Option, %Option* %gadt6, i32 0, i32 1
+  %inner_ptr9 = bitcast %constructor_Some* %temp_inner_ptr8 to %constructor_None*
+  %ptr_value10 = ptrtoint %Option* %gadt6 to i64
+  store i64 %ptr_value10, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Cons_block1:                                      ; No predecessors!
+  br label %case_else
+
+Nil_block4:                                       ; No predecessors!
+  br label %case_else
+}
+
+define %List* @tail(%List* %l) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %List, %List* %l, i32 0, i32 1
+  %tag_ptr12 = getelementptr inbounds %List, %List* %l, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr12, align 4
+  switch i64 %tag, label %case_else [
+    i64 0, label %Cons_block
+    i64 1, label %Nil_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Nil_block, %Cons_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  %case_result_adt_ptr = inttoptr i64 %case_result to %List*
+  ret %List* %case_result_adt_ptr
+
+case_else:                                        ; preds = %entry, %Nil_block3, %Cons_block1
+  %malloccall6 = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt7 = bitcast i8* %malloccall6 to %List*
   %tag_ptr8 = getelementptr inbounds %List, %List* %gadt7, i32 0, i32 0
   store i64 1, i64* %tag_ptr8, align 4
   %temp_inner_ptr9 = getelementptr inbounds %List, %List* %gadt7, i32 0, i32 1
-  %param10 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr9, i32 0, i32 0
-  store i64 3, i64* %param10, align 4
-  %param11 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr9, i32 0, i32 1
-  %gadt12 = alloca %List, align 8
-  %tag_ptr13 = getelementptr inbounds %List, %List* %gadt12, i32 0, i32 0
-  store i64 0, i64* %tag_ptr13, align 4
-  %temp_inner_ptr14 = getelementptr inbounds %List, %List* %gadt12, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_Cons* %temp_inner_ptr14 to %constructor_Nil*
-  store %List* %gadt12, %List** %param11, align 8
-  store %List* %gadt7, %List** %param6, align 8
-  store %List* %gadt2, %List** %param1, align 8
-  %temp_inner_ptr15 = getelementptr inbounds %List, %List* %gadt, i32 0, i32 1
-  %tag = getelementptr inbounds %List, %List* %gadt, i32 0, i32 0
-  %member_access = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr15, i32 0, i32 0
-  %temp_inner_ptr16 = getelementptr inbounds %List, %List* %gadt, i32 0, i32 1
-  %tag17 = getelementptr inbounds %List, %List* %gadt, i32 0, i32 0
-  %member_access18 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr16, i32 0, i32 1
-  %load = load i64, i64* %member_access, align 4
-  %deref = load %List*, %List** %member_access18, align 8
-  %temp_inner_ptr19 = getelementptr inbounds %List, %List* %deref, i32 0, i32 1
-  %tag20 = getelementptr inbounds %List, %List* %deref, i32 0, i32 0
-  %member_access21 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %temp_inner_ptr19, i32 0, i32 0
-  %load22 = load i64, i64* %member_access21, align 4
-  %add = add i64 %load, %load22
-  %z = alloca i64, align 8
-  store i64 %add, i64* %z, align 4
-  %load23 = load i64, i64* %z, align 4
-  ret i64 %load23
-}
+  %inner_ptr10 = bitcast %constructor_Cons* %temp_inner_ptr9 to %constructor_Nil*
+  %ptr_value11 = ptrtoint %List* %gadt7 to i64
+  store i64 %ptr_value11, i64* %case_result_ptr, align 4
+  br label %after_case
 
-define i64 @tree() {
-entry:
-  %gadt = alloca %BinTree, align 8
-  %tag_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
-  %param = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr, i32 0, i32 0
-  store i64 20, i64* %param, align 4
-  %param1 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr, i32 0, i32 1
-  %gadt2 = alloca %BinTree, align 8
-  %tag_ptr3 = getelementptr inbounds %BinTree, %BinTree* %gadt2, i32 0, i32 0
-  store i64 0, i64* %tag_ptr3, align 4
-  %temp_inner_ptr4 = getelementptr inbounds %BinTree, %BinTree* %gadt2, i32 0, i32 1
-  %param5 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr4, i32 0, i32 0
-  store i64 10, i64* %param5, align 4
-  %param6 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr4, i32 0, i32 1
-  %gadt7 = alloca %BinTree, align 8
-  %tag_ptr8 = getelementptr inbounds %BinTree, %BinTree* %gadt7, i32 0, i32 0
-  store i64 1, i64* %tag_ptr8, align 4
-  %temp_inner_ptr9 = getelementptr inbounds %BinTree, %BinTree* %gadt7, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_Node* %temp_inner_ptr9 to %constructor_Leaf*
-  store %BinTree* %gadt7, %BinTree** %param6, align 8
-  %param10 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr4, i32 0, i32 2
-  %gadt11 = alloca %BinTree, align 8
-  %tag_ptr12 = getelementptr inbounds %BinTree, %BinTree* %gadt11, i32 0, i32 0
-  store i64 1, i64* %tag_ptr12, align 4
-  %temp_inner_ptr13 = getelementptr inbounds %BinTree, %BinTree* %gadt11, i32 0, i32 1
-  %inner_ptr14 = bitcast %constructor_Node* %temp_inner_ptr13 to %constructor_Leaf*
-  store %BinTree* %gadt11, %BinTree** %param10, align 8
-  store %BinTree* %gadt2, %BinTree** %param1, align 8
-  %param15 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr, i32 0, i32 2
-  %gadt16 = alloca %BinTree, align 8
-  %tag_ptr17 = getelementptr inbounds %BinTree, %BinTree* %gadt16, i32 0, i32 0
-  store i64 0, i64* %tag_ptr17, align 4
-  %temp_inner_ptr18 = getelementptr inbounds %BinTree, %BinTree* %gadt16, i32 0, i32 1
-  %param19 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr18, i32 0, i32 0
-  store i64 30, i64* %param19, align 4
-  %param20 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr18, i32 0, i32 1
-  %gadt21 = alloca %BinTree, align 8
-  %tag_ptr22 = getelementptr inbounds %BinTree, %BinTree* %gadt21, i32 0, i32 0
-  store i64 1, i64* %tag_ptr22, align 4
-  %temp_inner_ptr23 = getelementptr inbounds %BinTree, %BinTree* %gadt21, i32 0, i32 1
-  %inner_ptr24 = bitcast %constructor_Node* %temp_inner_ptr23 to %constructor_Leaf*
-  store %BinTree* %gadt21, %BinTree** %param20, align 8
-  %param25 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr18, i32 0, i32 2
-  %gadt26 = alloca %BinTree, align 8
-  %tag_ptr27 = getelementptr inbounds %BinTree, %BinTree* %gadt26, i32 0, i32 0
-  store i64 1, i64* %tag_ptr27, align 4
-  %temp_inner_ptr28 = getelementptr inbounds %BinTree, %BinTree* %gadt26, i32 0, i32 1
-  %inner_ptr29 = bitcast %constructor_Node* %temp_inner_ptr28 to %constructor_Leaf*
-  store %BinTree* %gadt26, %BinTree** %param25, align 8
-  store %BinTree* %gadt16, %BinTree** %param15, align 8
-  %temp_inner_ptr30 = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
-  %tag = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
-  %member_access = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr30, i32 0, i32 1
-  %temp_inner_ptr31 = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
-  %tag32 = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
-  %member_access33 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr31, i32 0, i32 2
-  %deref = load %BinTree*, %BinTree** %member_access, align 8
-  %temp_inner_ptr34 = getelementptr inbounds %BinTree, %BinTree* %deref, i32 0, i32 1
-  %tag35 = getelementptr inbounds %BinTree, %BinTree* %deref, i32 0, i32 0
-  %member_access36 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr34, i32 0, i32 0
-  %load = load i64, i64* %member_access36, align 4
-  %temp_inner_ptr37 = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
-  %tag38 = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
-  %member_access39 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr37, i32 0, i32 0
-  %load40 = load i64, i64* %member_access39, align 4
-  %add = add i64 %load, %load40
-  %deref41 = load %BinTree*, %BinTree** %member_access33, align 8
-  %temp_inner_ptr42 = getelementptr inbounds %BinTree, %BinTree* %deref41, i32 0, i32 1
-  %tag43 = getelementptr inbounds %BinTree, %BinTree* %deref41, i32 0, i32 0
-  %member_access44 = getelementptr inbounds %constructor_Node, %constructor_Node* %temp_inner_ptr42, i32 0, i32 0
-  %load45 = load i64, i64* %member_access44, align 4
-  %add46 = add i64 %add, %load45
-  ret i64 %add46
-}
+Cons_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Cons, %constructor_Cons* %inner_ptr, i32 0, i32 0
+  %param2 = getelementptr inbounds %constructor_Cons, %constructor_Cons* %inner_ptr, i32 0, i32 1
+  %load = load %List*, %List** %param2, align 8
+  %ptr_value = ptrtoint %List* %load to i64
+  store i64 %ptr_value, i64* %case_result_ptr, align 4
+  br label %after_case
 
-define i64 @fake_infinite() {
-entry:
-  %gadt = alloca %Loop, align 8
-  %tag_ptr = getelementptr inbounds %Loop, %Loop* %gadt, i32 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %Loop, %Loop* %gadt, i32 0, i32 1
-  %param = getelementptr inbounds %constructor_Loop, %constructor_Loop* %temp_inner_ptr, i32 0, i32 0
-  store i64 1, i64* %param, align 4
-  %param1 = getelementptr inbounds %constructor_Loop, %constructor_Loop* %temp_inner_ptr, i32 0, i32 1
-  %gadt2 = alloca %Loop, align 8
-  %tag_ptr3 = getelementptr inbounds %Loop, %Loop* %gadt2, i32 0, i32 0
-  store i64 1, i64* %tag_ptr3, align 4
-  %temp_inner_ptr4 = getelementptr inbounds %Loop, %Loop* %gadt2, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_Loop* %temp_inner_ptr4 to %constructor_Temp*
-  store %Loop* %gadt2, %Loop** %param1, align 8
-  %gadt5 = alloca %Loop, align 8
-  %tag_ptr6 = getelementptr inbounds %Loop, %Loop* %gadt5, i32 0, i32 0
-  store i64 0, i64* %tag_ptr6, align 4
-  %temp_inner_ptr7 = getelementptr inbounds %Loop, %Loop* %gadt5, i32 0, i32 1
-  %param8 = getelementptr inbounds %constructor_Loop, %constructor_Loop* %temp_inner_ptr7, i32 0, i32 0
-  store i64 1, i64* %param8, align 4
-  %param9 = getelementptr inbounds %constructor_Loop, %constructor_Loop* %temp_inner_ptr7, i32 0, i32 1
-  store %Loop* %gadt, %Loop** %param9, align 8
-  %load = load %Loop, %Loop* %gadt5, align 8
-  store %Loop %load, %Loop* %gadt, align 8
-  %inner_ptr10 = getelementptr inbounds %Loop, %Loop* %gadt, i32 0, i32 1
-  %member_access = getelementptr inbounds %constructor_Loop, %constructor_Loop* %inner_ptr10, i32 0, i32 0
-  store i64 100, i64* %member_access, align 4
-  %temp_inner_ptr11 = getelementptr inbounds %Loop, %Loop* %gadt, i32 0, i32 1
-  %tag = getelementptr inbounds %Loop, %Loop* %gadt, i32 0, i32 0
-  %member_access12 = getelementptr inbounds %constructor_Loop, %constructor_Loop* %temp_inner_ptr11, i32 0, i32 0
-  %load13 = load i64, i64* %member_access12, align 4
-  ret i64 %load13
-}
-
-define i64 @test_tags() {
-entry:
-  %gadt = alloca %Enum, align 8
-  %tag_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 0
+Nil_block:                                        ; preds = %entry
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %List*
+  %tag_ptr = getelementptr inbounds %List, %List* %gadt, i32 0, i32 0
   store i64 1, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_C* %temp_inner_ptr to %constructor_A*
-  %gadt1 = alloca %Enum, align 8
-  %tag_ptr2 = getelementptr inbounds %Enum, %Enum* %gadt1, i32 0, i32 0
-  store i64 2, i64* %tag_ptr2, align 4
-  %temp_inner_ptr3 = getelementptr inbounds %Enum, %Enum* %gadt1, i32 0, i32 1
-  %inner_ptr4 = bitcast %constructor_C* %temp_inner_ptr3 to %constructor_B*
-  %param = getelementptr inbounds %constructor_B, %constructor_B* %inner_ptr4, i32 0, i32 0
-  store i64 1, i64* %param, align 4
-  %gadt5 = alloca %Enum, align 8
-  %tag_ptr6 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 0
-  store i64 0, i64* %tag_ptr6, align 4
-  %temp_inner_ptr7 = getelementptr inbounds %Enum, %Enum* %gadt5, i32 0, i32 1
-  %param8 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr7, i32 0, i32 0
-  store i64 10, i64* %param8, align 4
-  %param9 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr7, i32 0, i32 1
-  store i64 20, i64* %param9, align 4
-  ret i64 0
+  %temp_inner_ptr = getelementptr inbounds %List, %List* %gadt, i32 0, i32 1
+  %inner_ptr4 = bitcast %constructor_Cons* %temp_inner_ptr to %constructor_Nil*
+  %ptr_value5 = ptrtoint %List* %gadt to i64
+  store i64 %ptr_value5, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Cons_block1:                                      ; No predecessors!
+  br label %case_else
+
+Nil_block3:                                       ; No predecessors!
+  br label %case_else
 }
 
-define i64 @optionals() {
+define i64 @wrapper(%Wrapper* %w) {
 entry:
-  %gadt = alloca %OptionalInt, align 8
-  %tag_ptr = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt, i32 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt, i32 0, i32 1
-  %inner_ptr = bitcast %constructor_SomeI* %temp_inner_ptr to %constructor_NoneI*
-  %gadt1 = alloca %OptionalInt, align 8
-  %tag_ptr2 = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt1, i32 0, i32 0
-  store i64 1, i64* %tag_ptr2, align 4
-  %temp_inner_ptr3 = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt1, i32 0, i32 1
-  %param = getelementptr inbounds %constructor_SomeI, %constructor_SomeI* %temp_inner_ptr3, i32 0, i32 0
-  store i64 10, i64* %param, align 4
-  %gadt4 = alloca %OptionalTuple, align 8
-  %tag_ptr5 = getelementptr inbounds %OptionalTuple, %OptionalTuple* %gadt4, i32 0, i32 0
-  store i64 0, i64* %tag_ptr5, align 4
-  %temp_inner_ptr6 = getelementptr inbounds %OptionalTuple, %OptionalTuple* %gadt4, i32 0, i32 1
-  %param7 = getelementptr inbounds %constructor_SomeT, %constructor_SomeT* %temp_inner_ptr6, i32 0, i32 0
-  %gadt8 = alloca %Tuple, align 8
-  %tag_ptr9 = getelementptr inbounds %Tuple, %Tuple* %gadt8, i32 0, i32 0
-  store i64 0, i64* %tag_ptr9, align 4
-  %temp_inner_ptr10 = getelementptr inbounds %Tuple, %Tuple* %gadt8, i32 0, i32 1
-  %param11 = getelementptr inbounds %constructor_Tuple, %constructor_Tuple* %temp_inner_ptr10, i32 0, i32 0
-  store i64 10, i64* %param11, align 4
-  %param12 = getelementptr inbounds %constructor_Tuple, %constructor_Tuple* %temp_inner_ptr10, i32 0, i32 1
-  store i64 20, i64* %param12, align 4
-  store %Tuple* %gadt8, %Tuple** %param7, align 8
-  %temp_inner_ptr13 = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt1, i32 0, i32 1
-  %tag = getelementptr inbounds %OptionalInt, %OptionalInt* %gadt1, i32 0, i32 0
-  %member_access = getelementptr inbounds %constructor_SomeI, %constructor_SomeI* %temp_inner_ptr13, i32 0, i32 0
-  %load = load i64, i64* %member_access, align 4
-  ret i64 %load
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Wrapper, %Wrapper* %w, i32 0, i32 1
+  %tag_ptr36 = getelementptr inbounds %Wrapper, %Wrapper* %w, i32 0, i32 0
+  %tag37 = load i64, i64* %tag_ptr36, align 4
+  switch i64 %tag37, label %case_else [
+    i64 0, label %Wrapper_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Wrapper_block1821, %then_132, %then_119, %then_1
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %Wrapper_block182134
+  store i64 -1, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block:                                    ; preds = %entry
+  %param = getelementptr inbounds %constructor_Wrapper, %constructor_Wrapper* %inner_ptr, i32 0, i32 0
+  %deref_param = load %Test*, %Test** %param, align 8
+  %tag_ptr = getelementptr inbounds %Test, %Test* %deref_param, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  %cond = icmp eq i64 %tag, 0
+  br i1 %cond, label %then_0, label %Wrapper_block1
+
+Wrapper_block1:                                   ; preds = %then_04, %then_0, %Wrapper_block
+  %param9 = getelementptr inbounds %constructor_Wrapper, %constructor_Wrapper* %inner_ptr, i32 0, i32 0
+  %deref_param9 = load %Test*, %Test** %param9, align 8
+  %tag_ptr10 = getelementptr inbounds %Test, %Test* %deref_param9, i32 0, i32 0
+  %tag11 = load i64, i64* %tag_ptr10, align 4
+  %cond12 = icmp eq i64 %tag11, 0
+  br i1 %cond12, label %then_013, label %Wrapper_block18
+
+then_0:                                           ; preds = %Wrapper_block
+  %param_ptr = getelementptr inbounds %Test, %Test* %deref_param, i32 0, i32 1
+  %param2 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr, i32 0, i32 0
+  %load = load i64, i64* %param2, align 4
+  %cond3 = icmp eq i64 3, %load
+  br i1 %cond3, label %then_04, label %Wrapper_block1
+
+then_04:                                          ; preds = %then_0
+  %param5 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr, i32 0, i32 1
+  %load6 = load i64, i64* %param5, align 4
+  %cond7 = icmp eq i64 6, %load6
+  br i1 %cond7, label %then_1, label %Wrapper_block1
+
+then_1:                                           ; preds = %then_04
+  store i64 1000, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block18:                                  ; preds = %then_013, %Wrapper_block1
+  %param22 = getelementptr inbounds %constructor_Wrapper, %constructor_Wrapper* %inner_ptr, i32 0, i32 0
+  %deref_param22 = load %Test*, %Test** %param22, align 8
+  %tag_ptr23 = getelementptr inbounds %Test, %Test* %deref_param22, i32 0, i32 0
+  %tag24 = load i64, i64* %tag_ptr23, align 4
+  %cond25 = icmp eq i64 %tag24, 0
+  br i1 %cond25, label %then_026, label %Wrapper_block1821
+
+then_013:                                         ; preds = %Wrapper_block1
+  %param_ptr14 = getelementptr inbounds %Test, %Test* %deref_param9, i32 0, i32 1
+  %param15 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr14, i32 0, i32 0
+  %param16 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr14, i32 0, i32 1
+  %load17 = load i64, i64* %param16, align 4
+  %cond18 = icmp eq i64 69, %load17
+  br i1 %cond18, label %then_119, label %Wrapper_block18
+
+then_119:                                         ; preds = %then_013
+  %load20 = load i64, i64* %param15, align 4
+  store i64 %load20, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block1821:                                ; preds = %then_026, %Wrapper_block18
+  %param35 = getelementptr inbounds %constructor_Wrapper, %constructor_Wrapper* %inner_ptr, i32 0, i32 0
+  store i64 -404, i64* %case_result_ptr, align 4
+  br label %after_case
+
+then_026:                                         ; preds = %Wrapper_block18
+  %param_ptr27 = getelementptr inbounds %Test, %Test* %deref_param22, i32 0, i32 1
+  %param28 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr27, i32 0, i32 0
+  %param29 = getelementptr inbounds %constructor_Test, %constructor_Test* %param_ptr27, i32 0, i32 1
+  %load30 = load i64, i64* %param29, align 4
+  %cond31 = icmp eq i64 100, %load30
+  br i1 %cond31, label %then_132, label %Wrapper_block1821
+
+then_132:                                         ; preds = %then_026
+  %load33 = load i64, i64* %param28, align 4
+  %mul = mul i64 %load33, 2
+  store i64 %mul, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block182134:                              ; No predecessors!
+  br label %case_else
 }
 
-define i64 @main() {
+define %Test* @adt_extract(%Wrapper* %w) {
 entry:
-  %gadt = alloca %Enum, align 8
-  %tag_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 0
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Wrapper, %Wrapper* %w, i32 0, i32 1
+  %tag_ptr5 = getelementptr inbounds %Wrapper, %Wrapper* %w, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr5, align 4
+  switch i64 %tag, label %case_else [
+    i64 0, label %Wrapper_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Wrapper_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  %case_result_adt_ptr = inttoptr i64 %case_result to %Test*
+  ret %Test* %case_result_adt_ptr
+
+case_else:                                        ; preds = %entry, %Wrapper_block1
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%Test* getelementptr (%Test, %Test* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %Test*
+  %tag_ptr = getelementptr inbounds %Test, %Test* %gadt, i32 0, i32 0
   store i64 0, i64* %tag_ptr, align 4
-  %temp_inner_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %param = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr, i32 0, i32 0
-  store i64 10, i64* %param, align 4
-  %param1 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr, i32 0, i32 1
-  store i64 69, i64* %param1, align 4
-  %inner_ptr = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %member_access = getelementptr inbounds %constructor_C, %constructor_C* %inner_ptr, i32 0, i32 0
-  store i64 100, i64* %member_access, align 4
-  %temp_inner_ptr2 = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %tag = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 0
-  %member_access3 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr2, i32 0, i32 0
-  %load = load i64, i64* %member_access3, align 4
-  %temp_inner_ptr4 = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 1
-  %tag5 = getelementptr inbounds %Enum, %Enum* %gadt, i32 0, i32 0
-  %member_access6 = getelementptr inbounds %constructor_C, %constructor_C* %temp_inner_ptr4, i32 0, i32 1
-  %load7 = load i64, i64* %member_access6, align 4
-  %add = add i64 %load, %load7
-  ret i64 %add
+  %temp_inner_ptr = getelementptr inbounds %Test, %Test* %gadt, i32 0, i32 1
+  %param2 = getelementptr inbounds %constructor_Test, %constructor_Test* %temp_inner_ptr, i32 0, i32 0
+  store i64 0, i64* %param2, align 4
+  %param3 = getelementptr inbounds %constructor_Test, %constructor_Test* %temp_inner_ptr, i32 0, i32 1
+  store i64 0, i64* %param3, align 4
+  %ptr_value4 = ptrtoint %Test* %gadt to i64
+  store i64 %ptr_value4, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block:                                    ; preds = %entry
+  %param = getelementptr inbounds %constructor_Wrapper, %constructor_Wrapper* %inner_ptr, i32 0, i32 0
+  %load = load %Test*, %Test** %param, align 8
+  %ptr_value = ptrtoint %Test* %load to i64
+  store i64 %ptr_value, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Wrapper_block1:                                   ; No predecessors!
+  br label %case_else
 }
+
+define i64 @ten_or_else(%Test* %t) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Test, %Test* %t, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Test, %Test* %t, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 0, label %Test_block
+  ]
+
+after_case:                                       ; preds = %case_else, %then_07, %then_0
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %Test_block13
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Test_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Test, %constructor_Test* %inner_ptr, i32 0, i32 0
+  %load = load i64, i64* %param, align 4
+  %cond = icmp eq i64 10, %load
+  br i1 %cond, label %then_0, label %Test_block1
+
+Test_block1:                                      ; preds = %Test_block
+  %param4 = getelementptr inbounds %constructor_Test, %constructor_Test* %inner_ptr, i32 0, i32 0
+  %load5 = load i64, i64* %param4, align 4
+  %cond6 = icmp eq i64 8, %load5
+  br i1 %cond6, label %then_07, label %Test_block13
+
+then_0:                                           ; preds = %Test_block
+  %param2 = getelementptr inbounds %constructor_Test, %constructor_Test* %inner_ptr, i32 0, i32 1
+  store i64 10, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Test_block13:                                     ; preds = %Test_block1
+  br label %case_else
+
+then_07:                                          ; preds = %Test_block1
+  %param8 = getelementptr inbounds %constructor_Test, %constructor_Test* %inner_ptr, i32 0, i32 1
+  %load9 = load i64, i64* %param8, align 4
+  store i64 %load9, i64* %case_result_ptr, align 4
+  br label %after_case
+}
+
+define i64 @unwrap_or(%Option* %o, i64 %d) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Some_block
+    i64 0, label %None_block
+  ]
+
+after_case:                                       ; preds = %case_else, %None_block, %Some_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %None_block2, %Some_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Some, %constructor_Some* %inner_ptr, i32 0, i32 0
+  %load = load i64, i64* %param, align 4
+  store i64 %load, i64* %case_result_ptr, align 4
+  br label %after_case
+
+None_block:                                       ; preds = %entry
+  store i64 %d, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block1:                                      ; No predecessors!
+  br label %case_else
+
+None_block2:                                      ; No predecessors!
+  br label %case_else
+}
+
+define i64 @is_some(%Option* %o) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Some_block
+  ]
+
+after_case:                                       ; preds = %case_else, %Some_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %Some_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Some, %constructor_Some* %inner_ptr, i32 0, i32 0
+  store i64 -1, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block1:                                      ; No predecessors!
+  br label %case_else
+}
+
+define i64 @is_none(%Option* %o) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 0, label %None_block
+  ]
+
+after_case:                                       ; preds = %case_else, %None_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %None_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+None_block:                                       ; preds = %entry
+  store i64 -1, i64* %case_result_ptr, align 4
+  br label %after_case
+
+None_block1:                                      ; No predecessors!
+  br label %case_else
+}
+
+define i64 @is_five(%Option* %o) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Some_block
+  ]
+
+after_case:                                       ; preds = %case_else, %then_0
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %Some_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Some, %constructor_Some* %inner_ptr, i32 0, i32 0
+  %load = load i64, i64* %param, align 4
+  %cond = icmp eq i64 5, %load
+  br i1 %cond, label %then_0, label %Some_block1
+
+Some_block1:                                      ; preds = %Some_block
+  br label %case_else
+
+then_0:                                           ; preds = %Some_block
+  store i64 -1, i64* %case_result_ptr, align 4
+  br label %after_case
+}
+
+define i64 @unwrap_or_default(%Option* %o) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %Some_block
+    i64 0, label %None_block
+  ]
+
+after_case:                                       ; preds = %case_else, %None_block, %Some_block
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %None_block2, %Some_block1
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block:                                       ; preds = %entry
+  %param = getelementptr inbounds %constructor_Some, %constructor_Some* %inner_ptr, i32 0, i32 0
+  %load = load i64, i64* %param, align 4
+  store i64 %load, i64* %case_result_ptr, align 4
+  br label %after_case
+
+None_block:                                       ; preds = %entry
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+Some_block1:                                      ; No predecessors!
+  br label %case_else
+
+None_block2:                                      ; No predecessors!
+  br label %case_else
+}
+
+define i64 @useless_case(%Option* %o) {
+entry:
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 1
+  %tag_ptr = getelementptr inbounds %Option, %Option* %o, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  switch i64 %tag, label %case_else [
+  ]
+
+after_case:                                       ; preds = %case_else
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry
+  %x = alloca %Option*, align 8
+  store %Option* %o, %Option** %x, align 8
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+}
+
+define i64 @int_case(i64 %x) {
+entry:
+  %case_return = alloca i64, align 8
+  switch i64 %x, label %case_else [
+    i64 420, label %value_branch
+    i64 32, label %value_branch1
+  ]
+
+after_case:                                       ; preds = %case_else, %value_branch1, %value_branch
+  %case_result_value = load i64, i64* %case_return, align 4
+  ret i64 %case_result_value
+
+case_else:                                        ; preds = %entry
+  %t = alloca i64, align 8
+  store i64 %x, i64* %t, align 4
+  %load = load i64, i64* %t, align 4
+  store i64 %load, i64* %case_return, align 4
+  br label %after_case
+
+value_branch:                                     ; preds = %entry
+  store i64 100, i64* %case_return, align 4
+  br label %after_case
+
+value_branch1:                                    ; preds = %entry
+  store i64 142, i64* %case_return, align 4
+  br label %after_case
+}
+
+declare noalias i8* @malloc(i32)

@@ -129,7 +129,7 @@ pub fn constructor_to_type<'ctx>(
             let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
             t.set_body(&f, false);
         }
-        GADTConstructorFields::Struct(params, fields) => {
+        GADTConstructorFields::Struct(params, _) => {
             let f: Vec<BasicTypeEnum> = params.iter().map(ast_type_to_basic(context)).collect();
             t.set_body(&f, false);
         }

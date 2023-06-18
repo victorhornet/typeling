@@ -117,7 +117,7 @@ shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>
     }
     | "LPAREN" tuple_params "RPAREN" { 
         let mut map = HashMap::new();
-        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").unit_fields().build());
+        map.insert("@".to_owned(), GADTConstructorBuilder::new("@").tuple_fields(&$2?).build());
         Ok(map) 
     }
     | struct_def { 
@@ -270,6 +270,7 @@ expr -> ParseResult<Expr>
     | expr "GT" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gt($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GT"
     | expr "GTE" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Gte($2?.span()), rhs: Box::new($3?), span: $span})} %prec "GTE"
     | expr "OR" expr { Ok(Expr::BinOp{lhs: Box::new($1?), op: BinOp::Or($2?.span()), rhs: Box::new($3?), span: $span})} %prec "OR"
+    | case_expr { $1 }
     | factor { $1 }
     ;
 
@@ -300,12 +301,16 @@ term -> ParseResult<Expr>
     | "TYPE_IDENT" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::None, span: $span}) }
     | "TYPE_IDENT" "LPAREN" comma_separated_exprs "RPAREN" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::from($3?), span: $span}) }
     | "TYPE_IDENT" "LPAREN" construct_type_arg_list_named_elems "RPAREN" { Ok(Expr::ConstructorCall {name: $1?.span(), args: ConstructorCallArgs::from($3?), span: $span}) }
-    | "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
+    | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
+    | "LPAREN" expr "RPAREN" { $2 }
+    | primitive_value { $1 }
+    ;
+
+primitive_value -> ParseResult<Expr>
+    : "INT_LIT" { Ok( Expr::Int{ value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FLOAT_LIT" { Ok( Expr::Float{value: $lexer.span_str($1?.span()).parse().unwrap(), span: $span}) }
     | "FALSE" { Ok( Expr::Bool{value: false, span: $span}) }
     | "TRUE" { Ok( Expr::Bool{value: true, span: $span}) }
-    | "STRING_LIT" { Ok( Expr::String{value: $lexer.span_str($1?.span()).to_string(), span: $span}) }
-    | "LPAREN" expr "RPAREN" { $2 }
     ;
 
 construct_type_arg_list_named_elems -> ParseResult<Vec<(String, Expr)>>
@@ -321,6 +326,43 @@ construct_type_arg_list_named_elem -> ParseResult<(String, Expr)>
 unary_op -> ParseResult<UnOp>
     : "MINUS" { Ok(UnOp::Neg($span)) }
     | "NOT" { Ok(UnOp::Not($span)) } 
+    ;
+
+
+case_expr -> ParseResult<Expr>
+    : "CASE" expr "LBRACE" case_expr_arms "RBRACE" { Ok(Expr::Case {expr: Box::new($2?), patterns: $4?, span: $span}) }
+    | "CASE" expr "LBRACE" case_expr_arms "COMMA" "RBRACE" { Ok(Expr::Case {expr: Box::new($2?), patterns: $4?, span: $span}) }
+    ;
+
+case_expr_arms -> ParseResult<Vec<CaseBranch>>
+    : case_expr_arm { Ok(vec![$1?]) }
+    | case_expr_arms "COMMA" case_expr_arm { flatten($1, $3) }
+    ;
+
+case_expr_arm -> ParseResult<CaseBranch>
+    : case_pattern "ARROW" expr { Ok(($1?, CaseBranchBody::Expr($3?))) } 
+    | case_pattern "ARROW" block { Ok(($1?, CaseBranchBody::Block($3?))) }
+    ;
+
+case_pattern -> ParseResult<Pattern>
+    : "IDENT" { Ok(Pattern::Ident($1?.span())) }
+    | type_pattern { $1 }
+    | equality_check_pattern { $1 }
+    | "WILDCARD" { Ok(Pattern::Wildcard) }
+    ;
+
+type_pattern -> ParseResult<Pattern>
+    : "TYPE_IDENT" { Ok(Pattern::TypeIdent($1?.span(), TypePatternArgs::None)) }
+    | "TYPE_IDENT" "LPAREN" comma_separated_patterns "RPAREN" { Ok(Pattern::TypeIdent($1?.span(), TypePatternArgs::Tuple($3?))) }
+    ;
+
+equality_check_pattern -> ParseResult<Pattern>
+    : primitive_value { Ok(Pattern::Value($1?)) }
+    ;
+
+comma_separated_patterns -> ParseResult<Vec<Pattern>>
+    : case_pattern { Ok(vec![$1?]) }
+    | comma_separated_patterns "COMMA" case_pattern { flatten($1, $3) } 
     ;
 
 
@@ -345,7 +387,6 @@ fn init_map<T>(key: String, value: T) -> ParseResult<HashMap<String, T>>
     map.insert(key, value);
     Ok(map)
 }
-
 
 #[derive(Debug)]
 pub enum ParseError {

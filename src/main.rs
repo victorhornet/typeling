@@ -40,6 +40,9 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     no_verify: bool,
 
+    #[arg(long, default_value = "false")]
+    no_run: bool,
+
     output: Option<String>,
 }
 
@@ -81,10 +84,10 @@ fn main() {
                 }
 
                 //define items
-                let mut compiler_ctx = CompilerContext::new();
+                let compiler_ctx = CompilerContext::new();
 
-                let mut type_system = TypeSystem::new(&mut compiler_ctx);
-                type_system.type_definition_pass(&lexer, &file);
+                // let mut type_system = TypeSystem::new(&mut compiler_ctx);
+                // type_system.type_definition_pass(&lexer, &file);
                 //.type_check_pass(&lexer, &file);
 
                 let context = Context::create();
