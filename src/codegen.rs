@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 // globals definer -> type checker -> code generation
 
-use cfgrammar::{span, Span};
+use cfgrammar::Span;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -78,6 +78,10 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         if args.show_ir {
             self.module.print_to_stderr();
+        }
+
+        if args.no_run {
+            return;
         }
 
         let execution_engine = self
@@ -237,7 +241,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
 
-    fn get_basic_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
+    fn _get_basic_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         //todo return error
 
         match ty {
@@ -317,7 +321,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         //todo detect return type
         let case_result_ptr = self
             .builder
-            .build_alloca(self.llvm_ctx.i64_type(), "case_return");
+            .build_alloca(self.llvm_ctx.i64_type(), "case_result_ptr");
         let exit_block = self
             .llvm_ctx
             .append_basic_block(self.current_function.unwrap(), "after_case");
@@ -329,6 +333,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .builder
             .build_struct_gep(value, 1, "inner_ptr")
             .expect("type check should have caught this");
+
+        let mut return_type = None;
 
         let mut pattern_blocks = HashMap::new();
         for (pattern, _) in patterns.iter() {
@@ -362,15 +368,37 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         for (pattern, branch) in patterns.iter() {
             match pattern {
                 Pattern::TypeIdent(span, args) => {
-                    pattern_blocks = self.build_type_ident_branch(
-                        span,
-                        pattern_blocks,
-                        args,
-                        inner_ptr,
-                        branch,
-                        case_result_ptr,
-                        exit_block,
-                    )?;
+                    let patname = self.lexer.span_str(*span);
+                    let block = pattern_blocks
+                        .get(patname)
+                        .expect("block must exist because of previous pass");
+                    self.builder.position_at_end(*block);
+                    let fail_block = self.llvm_ctx.append_basic_block(
+                        self.current_function.unwrap(),
+                        block.get_name().to_str().unwrap(),
+                    );
+                    self.patmatch_args(args, inner_ptr, fail_block)?;
+                    let result_value = match branch {
+                        CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
+                        CaseBranchBody::Block(block) => self.visit_block(block)?,
+                    }
+                    .expect("expr should return a value, block does not yet do that");
+                    match return_type {
+                        None => {
+                            let ty = result_value.get_type();
+                            return_type = Some(ty);
+                        }
+                        Some(t) => {
+                            if t != result_value.get_type() {
+                                panic!("inconsistent return types in case expression")
+                            }
+                        }
+                    }
+
+                    self.store_case_result(result_value, case_result_ptr);
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(fail_block);
+                    pattern_blocks.insert(patname, fail_block);
                 }
                 Pattern::Ident(span) => {
                     self.build_ident_case_branch(
@@ -380,6 +408,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         branch,
                         case_result_ptr,
                         exit_block,
+                        &mut return_type,
                     )?;
                     break;
                 }
@@ -389,6 +418,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         branch,
                         case_result_ptr,
                         exit_block,
+                        &mut return_type,
                     )?;
                     break;
                 }
@@ -413,6 +443,20 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         self.builder.position_at_end(exit_block);
         let result_value = self.builder.build_load(case_result_ptr, "case_result");
+        if let Some(rtype) = return_type {
+            if rtype.is_pointer_type() {
+                return Ok(Some(
+                    self.builder
+                        .build_int_to_ptr(
+                            result_value.into_int_value(),
+                            rtype.into_pointer_type(),
+                            "case_result_adt_ptr",
+                        )
+                        .as_basic_value_enum(),
+                ));
+            }
+        }
+
         Ok(Some(result_value))
     }
 
@@ -427,29 +471,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         case_result_ptr: PointerValue<'_>,
         exit_block: BasicBlock<'_>,
     ) -> Result<HashMap<&'input str, BasicBlock<'ctx>>, Box<dyn Error>> {
-        let patname = self.lexer.span_str(*span);
-        let block = pattern_blocks
-            .get(patname)
-            .expect("block must exist because of previous pass");
-        self.builder.position_at_end(*block);
-        let fail_block = self.llvm_ctx.append_basic_block(
-            self.current_function.unwrap(),
-            block.get_name().to_str().unwrap(),
-        );
-        self.patmatch_args(args, inner_ptr, fail_block)?;
-        let result_value = match branch {
-            CaseBranchBody::Expr(expr) => self
-                .read_expr_value(expr)?
-                .expect("expr should return a value"),
-            CaseBranchBody::Block(block) => {
-                self.visit_block(block)?;
-                todo!("return value from block")
-            }
-        };
-        self.builder.build_store(case_result_ptr, result_value);
-        self.builder.build_unconditional_branch(exit_block);
-        self.builder.position_at_end(fail_block);
-        pattern_blocks.insert(patname, fail_block);
         Ok(pattern_blocks)
     }
 
@@ -568,6 +589,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .append_basic_block(self.current_function.unwrap(), "case_else");
         let current_block = self.builder.get_insert_block().unwrap();
         let mut cases = vec![];
+        let mut return_type = None;
         for (pattern, branch) in patterns.iter() {
             match pattern {
                 Pattern::Value(inner_expr) => {
@@ -605,6 +627,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         branch,
                         case_result_ptr,
                         exit_block,
+                        &mut return_type,
                     )?;
                     break;
                 }
@@ -614,6 +637,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         branch,
                         case_result_ptr,
                         exit_block,
+                        &mut return_type,
                     )?;
                     break;
                 }
@@ -628,9 +652,23 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         let result = self
             .builder
             .build_load(case_result_ptr, "case_result_value");
+        if let Some(rtype) = return_type {
+            if rtype.is_pointer_type() {
+                return Ok(Some(
+                    self.builder
+                        .build_int_to_ptr(
+                            result.into_int_value(),
+                            rtype.into_pointer_type(),
+                            "case_result_adt_ptr",
+                        )
+                        .as_basic_value_enum(),
+                ));
+            }
+        }
         Ok(Some(result))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build_ident_case_branch(
         &mut self,
         else_block: BasicBlock<'ctx>,
@@ -639,7 +677,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         branch: &CaseBranchBody,
         case_result_ptr: PointerValue<'ctx>,
         exit_block: BasicBlock<'ctx>,
-    ) -> Result<(), Box<dyn Error>> {
+        return_type: &mut Option<BasicTypeEnum<'ctx>>,
+    ) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
         self.builder.position_at_end(else_block);
         let ident = self.lexer.span_str(*span);
         let ident_ptr = self.builder.build_alloca(value.get_type(), ident);
@@ -648,38 +687,75 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .basic_value_stack
             .insert(ident, (ident_ptr.into(), true));
 
-        let branch_res = match branch {
+        let result_value = match branch {
             CaseBranchBody::Block(block) => self.visit_block(block)?,
             CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
-        };
-        self.builder.build_store(
-            case_result_ptr,
-            branch_res.expect("branch should return a value, block doesn't do that yet"),
-        );
+        }
+        .expect("branch should return a value, block doesn't do that yet");
+        let rtype = result_value.get_type();
+        match return_type {
+            None => {
+                *return_type = Some(rtype);
+            }
+            Some(t) => {
+                if *t != rtype {
+                    panic!("inconsistent return types in case expression")
+                }
+            }
+        }
+
+        // todo maybe extract this function
+        self.store_case_result(result_value, case_result_ptr);
         self.builder.build_unconditional_branch(exit_block);
         self.builder.position_at_end(exit_block);
-        Ok(())
+        Ok(case_result_ptr)
+    }
+
+    fn store_case_result(
+        &mut self,
+        result_value: BasicValueEnum<'_>,
+        case_result_ptr: PointerValue<'_>,
+    ) {
+        if result_value.is_pointer_value() {
+            let result_value = result_value.into_pointer_value();
+            let result_value =
+                self.builder
+                    .build_ptr_to_int(result_value, self.llvm_ctx.i64_type(), "ptr_value");
+            self.builder.build_store(case_result_ptr, result_value);
+        } else {
+            self.builder.build_store(case_result_ptr, result_value);
+        }
     }
 
     fn build_wildcard_case_branch(
         &mut self,
         else_block: BasicBlock<'_>,
         branch: &CaseBranchBody,
-        case_result_ptr: PointerValue<'_>,
+        case_result_ptr: PointerValue<'ctx>,
         exit_block: BasicBlock<'_>,
-    ) -> Result<(), Box<dyn Error>> {
+        return_type: &mut Option<BasicTypeEnum<'ctx>>,
+    ) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
         self.builder.position_at_end(else_block);
         let branch_res = match branch {
             CaseBranchBody::Block(block) => self.visit_block(block)?,
             CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
-        };
-        self.builder.build_store(
-            case_result_ptr,
-            branch_res.expect("branch should return a value, block doesn't do that yet"),
-        );
+        }
+        .expect("branch should return a value, block doesn't do that yet");
+        let rtype = branch_res.get_type();
+        match return_type {
+            None => {
+                *return_type = Some(rtype);
+            }
+            Some(t) => {
+                if *t != rtype {
+                    panic!("inconsistent return types in case expression")
+                }
+            }
+        }
+        self.store_case_result(branch_res, case_result_ptr);
         self.builder.build_unconditional_branch(exit_block);
         self.builder.position_at_end(exit_block);
-        Ok(())
+        Ok(case_result_ptr)
     }
 
     fn build_case_on(

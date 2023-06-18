@@ -40,6 +40,9 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     no_verify: bool,
 
+    #[arg(long, default_value = "false")]
+    no_run: bool,
+
     output: Option<String>,
 }
 

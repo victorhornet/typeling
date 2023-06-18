@@ -5,8 +5,46 @@ type Test = Test(i64, i64)
 
 type Wrapper(Test)
 
+type List = Cons i64 List | Nil
+
 fn main() -> i64 {
-    return wrapper(Wrapper(Test(4, 6)));
+    l: List = Cons (0, Cons (1, Cons (2, Cons (3, Cons (4, Nil)))));   
+    s: i64 = sum(l);
+    return s + unwrap_or_default(head(l));
+}
+
+fn sum(l: List) -> i64 {
+    s: i64 = 0;
+    z: List = l;
+
+    while not is_empty(z) {
+        s = s + unwrap_or_default(head(z));
+        z = tail(z);
+    }
+    return s;
+}
+
+fn is_empty(l: List) -> i64 {
+    return case l {
+        Nil => -1,
+        _ => 0,
+    };
+}
+
+fn head(l: List) -> Option {
+    return case l {
+        Cons(x, _) => Some(x),
+        Nil => None,
+        _ => None,
+    };
+}
+
+fn tail(l: List) -> List {
+    return case l {
+        Cons(_, xs) => xs,
+        Nil => Nil,
+        _ => Nil,
+    };
 }
 
 fn wrapper(w: Wrapper) -> i64 {
@@ -16,6 +54,13 @@ fn wrapper(w: Wrapper) -> i64 {
         Wrapper(Test(y, 100)) => y*2,
         Wrapper(_) => -404,
         _ => -1,
+    };
+}
+
+fn adt_extract(w: Wrapper) -> Test {
+    return case w {
+        Wrapper(t) => t,
+        _ => Test(0, 0),
     };
 }
 
