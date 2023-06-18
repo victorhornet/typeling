@@ -1,7 +1,8 @@
-use std::{error::Error, path::Path};
+use std::{collections::HashMap, error::Error, path::Path};
 
 // globals definer -> type checker -> code generation
 
+use cfgrammar::{span, Span};
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -94,9 +95,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     }
 
     fn load_ptr_or_read(&self, var: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
-        if var.is_pointer_value() {
-            let ptr = var.into_pointer_value();
-            self.builder.build_load(ptr, "load")
+        //TODO if shit breaks, revert these changes
+        if var.is_pointer_value()
+            && !var
+                .into_pointer_value()
+                .get_type()
+                .get_element_type()
+                .is_struct_type()
+        {
+            self.builder.build_load(var.into_pointer_value(), "load")
         } else {
             var
         }
@@ -303,10 +310,188 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         index
     }
 
+    fn build_adt_case(
+        &mut self,
+        patterns: &[(Pattern, CaseBranchBody)],
+        value: PointerValue<'ctx>,
+    ) -> CodeGenResult<'ctx> {
+        //todo detect return type
+        let case_result_ptr = self
+            .builder
+            .build_alloca(self.llvm_ctx.i64_type(), "case_return");
+        let exit_block = self
+            .llvm_ctx
+            .append_basic_block(self.current_function.unwrap(), "after_case");
+        let else_block = self
+            .llvm_ctx
+            .append_basic_block(self.current_function.unwrap(), "case_else");
+        let current_block = self.builder.get_insert_block().unwrap();
+        let inner_ptr = self
+            .builder
+            .build_struct_gep(value, 1, "inner_ptr")
+            .expect("type check should have caught this");
+
+        let mut pattern_blocks = HashMap::new();
+        for (pattern, _) in patterns.iter() {
+            if let Pattern::TypeIdent(span, _) = pattern {
+                let patname = self.lexer.span_str(*span);
+                //todo check if pattern matches existing constructor of type
+                if !self.compiler_ctx.type_constructors.contains_key(patname) {
+                    panic!("type constructor {} not found", patname);
+                }
+                if pattern_blocks.contains_key(patname) {
+                    continue;
+                }
+                let block = self.llvm_ctx.append_basic_block(
+                    self.current_function.unwrap(),
+                    &format!("{patname}_block"),
+                );
+                pattern_blocks.insert(patname, block);
+            }
+        }
+        let cases = pattern_blocks
+            .iter()
+            .map(|(tag, block)| {
+                let (_, tag) = *self.compiler_ctx.constructor_signatures.get(*tag).unwrap();
+                (
+                    self.llvm_ctx.i64_type().const_int(tag as u64, false),
+                    block.to_owned(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for (pattern, branch) in patterns.iter() {
+            match pattern {
+                Pattern::TypeIdent(span, args) => {
+                    let patname = self.lexer.span_str(*span);
+                    let block = pattern_blocks
+                        .get(patname)
+                        .expect("block must exist because of previous pass");
+                    self.builder.position_at_end(*block);
+
+                    // todo!("adt patmatch: branch according to patterns");
+                    let fail_block = self.llvm_ctx.append_basic_block(
+                        self.current_function.unwrap(),
+                        block.get_name().to_str().unwrap(),
+                    );
+
+                    match args {
+                        TypePatternArgs::None => {}
+                        TypePatternArgs::Tuple(patterns) => {
+                            for (i, pattern) in patterns.iter().enumerate() {
+                                let ptr = self
+                                    .builder
+                                    .build_struct_gep(inner_ptr, i as u32, "param")
+                                    .expect("type check should have caught this");
+                                match pattern {
+                                    Pattern::Wildcard => {}
+                                    Pattern::Ident(span) => {
+                                        let name = self.lexer.span_str(*span);
+                                        self.compiler_ctx
+                                            .basic_value_stack
+                                            .insert(name, (ptr.into(), true));
+                                    }
+                                    Pattern::Value(pat_val) => {
+                                        let pat_val = self
+                                            .read_expr_value(pat_val)?
+                                            .expect("expr should return a value");
+                                        let ptr_val = self.builder.build_load(ptr, "load");
+                                        let cond = match (pat_val, ptr_val) {
+                                            (
+                                                BasicValueEnum::IntValue(pat_val),
+                                                BasicValueEnum::IntValue(ptr_val),
+                                            ) => self.builder.build_int_compare(
+                                                IntPredicate::EQ,
+                                                pat_val,
+                                                ptr_val,
+                                                "cond",
+                                            ),
+                                            _ => unimplemented!(
+                                                "tuple pattern match on value or adt"
+                                            ),
+                                        };
+
+                                        let then_block = self.llvm_ctx.append_basic_block(
+                                            self.current_function.unwrap(),
+                                            &format!("then_{}", i),
+                                        );
+                                        self.builder
+                                            .build_conditional_branch(cond, then_block, fail_block);
+                                        self.builder.position_at_end(then_block);
+                                    }
+                                    Pattern::TypeIdent(_, _) => {
+                                        unimplemented!("nested adt pattern match")
+                                    }
+                                }
+                            }
+                        }
+
+                        TypePatternArgs::Struct(_patterns) => {
+                            unimplemented!("struct pattern match")
+                        }
+                    }
+                    let result_value = match branch {
+                        CaseBranchBody::Expr(expr) => self
+                            .read_expr_value(expr)?
+                            .expect("expr should return a value"),
+                        CaseBranchBody::Block(block) => {
+                            self.visit_block(block)?;
+                            todo!("return value from block")
+                        }
+                    };
+                    self.builder.build_store(case_result_ptr, result_value);
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(fail_block);
+                    pattern_blocks.insert(patname, fail_block);
+                }
+                Pattern::Ident(span) => {
+                    self.build_ident_case_branch(
+                        else_block,
+                        span,
+                        value.into(),
+                        branch,
+                        case_result_ptr,
+                        exit_block,
+                    )?;
+                    break;
+                }
+                Pattern::Wildcard => {
+                    self.build_wildcard_case_branch(
+                        else_block,
+                        branch,
+                        case_result_ptr,
+                        exit_block,
+                    )?;
+                    break;
+                }
+                p => {
+                    panic!("unsupported pattern in case expression for i64: {p:?}",)
+                }
+            }
+        }
+
+        for block in pattern_blocks.values() {
+            self.builder.position_at_end(*block);
+            self.builder.build_unconditional_branch(else_block);
+        }
+
+        self.builder.position_at_end(current_block);
+        let tag_ptr = self
+            .builder
+            .build_struct_gep(value, 0, "tag_ptr")
+            .expect("type check should have caught this");
+        let tag_value = self.builder.build_load(tag_ptr, "tag").into_int_value();
+        self.builder.build_switch(tag_value, else_block, &cases);
+
+        self.builder.position_at_end(exit_block);
+        let result_value = self.builder.build_load(case_result_ptr, "case_result");
+        Ok(Some(result_value))
+    }
+
     fn build_int_case(
         &mut self,
         patterns: &[(Pattern, CaseBranchBody)],
-        value: IntValue<'_>,
+        value: IntValue<'ctx>,
     ) -> CodeGenResult<'ctx> {
         let case_result_ptr = self
             .builder
@@ -324,7 +509,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 Pattern::Value(inner_expr) => {
                     let branch_block = self
                         .llvm_ctx
-                        .append_basic_block(self.current_function.unwrap(), "branch"); //todo change block name if needed
+                        .append_basic_block(self.current_function.unwrap(), "value_branch");
                     self.builder.position_at_end(branch_block);
                     let branch_res = match branch {
                         CaseBranchBody::Block(block) => self.visit_block(block)?,
@@ -348,41 +533,24 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     }
                     cases.push((inner_value.into_int_value(), branch_block));
                 }
-                Pattern::Ident(s) => {
-                    self.builder.position_at_end(else_block);
-
-                    let ident = self.lexer.span_str(*s);
-                    let ident_ptr = self.builder.build_alloca(self.llvm_ctx.i64_type(), ident);
-                    self.builder.build_store(ident_ptr, value);
-                    //todo ensure that ident is in scope stack
-
-                    let branch_res = match branch {
-                        CaseBranchBody::Block(block) => self.visit_block(block)?,
-                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
-                    };
-                    self.builder.build_store(
+                Pattern::Ident(span) => {
+                    self.build_ident_case_branch(
+                        else_block,
+                        span,
+                        value.into(),
+                        branch,
                         case_result_ptr,
-                        branch_res
-                            .expect("branch should return a value, block doesn't do that yet"),
-                    );
-                    self.builder.build_unconditional_branch(exit_block);
-                    self.builder.position_at_end(exit_block);
+                        exit_block,
+                    )?;
                     break;
                 }
                 Pattern::Wildcard => {
-                    self.builder.position_at_end(else_block);
-
-                    let branch_res = match branch {
-                        CaseBranchBody::Block(block) => self.visit_block(block)?,
-                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
-                    };
-                    self.builder.build_store(
+                    self.build_wildcard_case_branch(
+                        else_block,
+                        branch,
                         case_result_ptr,
-                        branch_res
-                            .expect("branch should return a value, block doesn't do that yet"),
-                    );
-                    self.builder.build_unconditional_branch(exit_block);
-                    self.builder.position_at_end(exit_block);
+                        exit_block,
+                    )?;
                     break;
                 }
                 p => {
@@ -397,6 +565,70 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .builder
             .build_load(case_result_ptr, "case_result_value");
         Ok(Some(result))
+    }
+
+    fn build_ident_case_branch(
+        &mut self,
+        else_block: BasicBlock<'ctx>,
+        span: &Span,
+        value: BasicValueEnum<'ctx>,
+        branch: &CaseBranchBody,
+        case_result_ptr: PointerValue<'ctx>,
+        exit_block: BasicBlock<'ctx>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.builder.position_at_end(else_block);
+        let ident = self.lexer.span_str(*span);
+        let ident_ptr = self.builder.build_alloca(value.get_type(), ident);
+        self.builder.build_store(ident_ptr, value);
+        self.compiler_ctx
+            .basic_value_stack
+            .insert(ident, (ident_ptr.into(), true));
+
+        let branch_res = match branch {
+            CaseBranchBody::Block(block) => self.visit_block(block)?,
+            CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
+        };
+        self.builder.build_store(
+            case_result_ptr,
+            branch_res.expect("branch should return a value, block doesn't do that yet"),
+        );
+        self.builder.build_unconditional_branch(exit_block);
+        self.builder.position_at_end(exit_block);
+        Ok(())
+    }
+
+    fn build_wildcard_case_branch(
+        &mut self,
+        else_block: BasicBlock<'_>,
+        branch: &CaseBranchBody,
+        case_result_ptr: PointerValue<'_>,
+        exit_block: BasicBlock<'_>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.builder.position_at_end(else_block);
+        let branch_res = match branch {
+            CaseBranchBody::Block(block) => self.visit_block(block)?,
+            CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+        };
+        self.builder.build_store(
+            case_result_ptr,
+            branch_res.expect("branch should return a value, block doesn't do that yet"),
+        );
+        self.builder.build_unconditional_branch(exit_block);
+        self.builder.position_at_end(exit_block);
+        Ok(())
+    }
+
+    fn build_case_on(
+        &mut self,
+        expr_value: BasicValueEnum<'ctx>,
+        patterns: &Vec<(Pattern, CaseBranchBody)>,
+    ) -> Result<Option<BasicValueEnum<'_>>, Box<dyn Error>> {
+        let res = match expr_value {
+            BasicValueEnum::IntValue(value) => self.build_int_case(patterns, value),
+            BasicValueEnum::PointerValue(value) => self.build_adt_case(patterns, value),
+            t => panic!("unsupported case expr type: {t}"),
+        };
+        res
     }
 }
 
@@ -956,7 +1188,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .get_struct_type(&llvm_constructor_name)
                     .unwrap();
                 let llvm_inner_ptr_type = llvm_inner_type.ptr_type(AddressSpace::default());
-                let struct_ptr = self.builder.build_alloca(llvm_struct_type, "gadt");
+
+                // ! there is no memory management here yet, so the memory allocated for the struct is leaked
+                // TODO implement garbage collection
+                let struct_ptr = self.builder.build_malloc(llvm_struct_type, "gadt")?;
 
                 let tag_ptr = self
                     .builder
@@ -1000,7 +1235,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 Ok(Some(struct_ptr.as_basic_value_enum()))
             }
 
-            //revino aici
             Expr::MemberAccess { expr, member, .. } => {
                 // ? need to figure out how to get adt type, specific tag and llvm type from expr
                 // match **expr {
@@ -1041,13 +1275,15 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 span,
             } => {
                 let expr_value = self.read_expr_value(expr)?.unwrap();
-                match expr_value {
+                self.compiler_ctx.basic_value_stack.push();
+                // println!("case expr value: {:?}", expr_value);
+                let res = match expr_value {
                     BasicValueEnum::IntValue(value) => self.build_int_case(patterns, value),
-                    BasicValueEnum::StructValue(_) | BasicValueEnum::PointerValue(_) => {
-                        todo!("case on adt");
-                    }
-                    _ => panic!("unsupported case expr type"),
-                }
+                    BasicValueEnum::PointerValue(value) => self.build_adt_case(patterns, value),
+                    t => panic!("unsupported case expr type: {t}"),
+                };
+                self.compiler_ctx.basic_value_stack.pop();
+                res
             }
             e => unimplemented!("{e:?}"),
         }

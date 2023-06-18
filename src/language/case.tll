@@ -1,10 +1,80 @@
+type Option = Some i64 | None
+type Result = Ok i64 | Err i64
+
+type Test = Test(i64, i64)
+
+type Wrapper(Test)
 
 fn main() -> i64 {
-    x: i64 = 10;
-    z: i64 = case x {
+    s:Option = Some (420);
+    n:Option = None;
+    
+    return wrapper(Wrapper(Test(8, 100)));
+}
+
+fn wrapper(w: Wrapper) -> i64 {
+    return case w {
+        Wrapper(t) => t.0,
+        _ => 0,
+    };
+}
+
+fn ten_or_else(t: Test) -> i64 {
+    return case t {
+        Test(10, _) => 10,
+        Test(8, x) => x,
+        _ => 0,
+    };
+}
+
+
+fn unwrap_or(o: Option, d: i64) -> i64 {
+    return case o {
+        Some(x) => x,
+        None => d,
+        _ => 0,
+    };
+}
+
+fn is_some(o: Option) -> i64 {
+    return case o {
+        Some(_) => -1,
+        _ => 0,
+    };
+}
+
+fn is_none(o: Option) -> i64 {
+    return case o {
+        None => -1,
+        _ => 0,
+    };
+}
+
+fn is_five(o: Option) -> i64 {
+    return case o {
+        Some(5) => -1,
+        _ => 0,
+    };
+}
+
+fn unwrap_or_default(o: Option) -> i64 {
+    return case o {
+        Some(x) => x,
+        None => 0,
+        _ => 0,
+    };
+}
+
+fn useless_case(o: Option) -> i64 {
+    return case o {
+        x => 0,
+    };
+}
+
+fn int_case(x: i64) -> i64 {
+    return case x {
         420 => 100,
-        _ => -69,
-        t => 4000,
-    }; 
-    return z + 140;
+        32 => 142,
+        t => t,
+    };
 }
