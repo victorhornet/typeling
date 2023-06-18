@@ -6,16 +6,16 @@ type Test = Test(i64, i64)
 type Wrapper(Test)
 
 fn main() -> i64 {
-    s:Option = Some (420);
-    n:Option = None;
-    
-    return wrapper(Wrapper(Test(8, 100)));
+    return wrapper(Wrapper(Test(4, 6)));
 }
 
 fn wrapper(w: Wrapper) -> i64 {
     return case w {
-        Wrapper(t) => t.0,
-        _ => 0,
+        Wrapper(Test(3, 6)) => 1000,
+        Wrapper(Test(x, 69)) => x,
+        Wrapper(Test(y, 100)) => y*2,
+        Wrapper(_) => -404,
+        _ => -1,
     };
 }
 

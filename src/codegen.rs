@@ -74,7 +74,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
         if args.emit_llvm {
             self.module.print_to_file(Path::new("out.ll")).unwrap();
-            return;
         }
 
         if args.show_ir {
@@ -363,86 +362,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         for (pattern, branch) in patterns.iter() {
             match pattern {
                 Pattern::TypeIdent(span, args) => {
-                    let patname = self.lexer.span_str(*span);
-                    let block = pattern_blocks
-                        .get(patname)
-                        .expect("block must exist because of previous pass");
-                    self.builder.position_at_end(*block);
-
-                    // todo!("adt patmatch: branch according to patterns");
-                    let fail_block = self.llvm_ctx.append_basic_block(
-                        self.current_function.unwrap(),
-                        block.get_name().to_str().unwrap(),
-                    );
-
-                    match args {
-                        TypePatternArgs::None => {}
-                        TypePatternArgs::Tuple(patterns) => {
-                            for (i, pattern) in patterns.iter().enumerate() {
-                                let ptr = self
-                                    .builder
-                                    .build_struct_gep(inner_ptr, i as u32, "param")
-                                    .expect("type check should have caught this");
-                                match pattern {
-                                    Pattern::Wildcard => {}
-                                    Pattern::Ident(span) => {
-                                        let name = self.lexer.span_str(*span);
-                                        self.compiler_ctx
-                                            .basic_value_stack
-                                            .insert(name, (ptr.into(), true));
-                                    }
-                                    Pattern::Value(pat_val) => {
-                                        let pat_val = self
-                                            .read_expr_value(pat_val)?
-                                            .expect("expr should return a value");
-                                        let ptr_val = self.builder.build_load(ptr, "load");
-                                        let cond = match (pat_val, ptr_val) {
-                                            (
-                                                BasicValueEnum::IntValue(pat_val),
-                                                BasicValueEnum::IntValue(ptr_val),
-                                            ) => self.builder.build_int_compare(
-                                                IntPredicate::EQ,
-                                                pat_val,
-                                                ptr_val,
-                                                "cond",
-                                            ),
-                                            _ => unimplemented!(
-                                                "tuple pattern match on value or adt"
-                                            ),
-                                        };
-
-                                        let then_block = self.llvm_ctx.append_basic_block(
-                                            self.current_function.unwrap(),
-                                            &format!("then_{}", i),
-                                        );
-                                        self.builder
-                                            .build_conditional_branch(cond, then_block, fail_block);
-                                        self.builder.position_at_end(then_block);
-                                    }
-                                    Pattern::TypeIdent(_, _) => {
-                                        unimplemented!("nested adt pattern match")
-                                    }
-                                }
-                            }
-                        }
-
-                        TypePatternArgs::Struct(_patterns) => {
-                            unimplemented!("struct pattern match")
-                        }
-                    }
-                    let result_value = match branch {
-                        CaseBranchBody::Expr(expr) => self
-                            .read_expr_value(expr)?
-                            .expect("expr should return a value"),
-                        CaseBranchBody::Block(block) => {
-                            self.visit_block(block)?;
-                            todo!("return value from block")
-                        }
-                    };
-                    self.builder.build_store(case_result_ptr, result_value);
-                    self.builder.build_unconditional_branch(exit_block);
-                    self.builder.position_at_end(fail_block);
-                    pattern_blocks.insert(patname, fail_block);
+                    pattern_blocks = self.build_type_ident_branch(
+                        span,
+                        pattern_blocks,
+                        args,
+                        inner_ptr,
+                        branch,
+                        case_result_ptr,
+                        exit_block,
+                    )?;
                 }
                 Pattern::Ident(span) => {
                     self.build_ident_case_branch(
@@ -486,6 +414,142 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.position_at_end(exit_block);
         let result_value = self.builder.build_load(case_result_ptr, "case_result");
         Ok(Some(result_value))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn build_type_ident_branch(
+        &mut self,
+        span: &Span,
+        mut pattern_blocks: HashMap<&'input str, BasicBlock<'ctx>>,
+        args: &TypePatternArgs,
+        inner_ptr: PointerValue<'ctx>,
+        branch: &CaseBranchBody,
+        case_result_ptr: PointerValue<'_>,
+        exit_block: BasicBlock<'_>,
+    ) -> Result<HashMap<&'input str, BasicBlock<'ctx>>, Box<dyn Error>> {
+        let patname = self.lexer.span_str(*span);
+        let block = pattern_blocks
+            .get(patname)
+            .expect("block must exist because of previous pass");
+        self.builder.position_at_end(*block);
+        let fail_block = self.llvm_ctx.append_basic_block(
+            self.current_function.unwrap(),
+            block.get_name().to_str().unwrap(),
+        );
+        self.patmatch_args(args, inner_ptr, fail_block)?;
+        let result_value = match branch {
+            CaseBranchBody::Expr(expr) => self
+                .read_expr_value(expr)?
+                .expect("expr should return a value"),
+            CaseBranchBody::Block(block) => {
+                self.visit_block(block)?;
+                todo!("return value from block")
+            }
+        };
+        self.builder.build_store(case_result_ptr, result_value);
+        self.builder.build_unconditional_branch(exit_block);
+        self.builder.position_at_end(fail_block);
+        pattern_blocks.insert(patname, fail_block);
+        Ok(pattern_blocks)
+    }
+
+    fn patmatch_args(
+        &mut self,
+        args: &TypePatternArgs,
+        inner_ptr: PointerValue<'ctx>,
+        fail_block: BasicBlock<'_>,
+    ) -> Result<(), Box<dyn Error>> {
+        match args {
+            TypePatternArgs::None => {}
+            TypePatternArgs::Tuple(patterns) => {
+                for (i, pattern) in patterns.iter().enumerate() {
+                    let ptr = self
+                        .builder
+                        .build_struct_gep(inner_ptr, i as u32, "param")
+                        .expect("type check should have caught this");
+                    match pattern {
+                        Pattern::Wildcard => {}
+                        Pattern::Ident(span) => {
+                            let name = self.lexer.span_str(*span);
+                            self.compiler_ctx
+                                .basic_value_stack
+                                .insert(name, (ptr.into(), true));
+                        }
+                        Pattern::Value(pat_val) => {
+                            let pat_val = self
+                                .read_expr_value(pat_val)?
+                                .expect("expr should return a value");
+                            let ptr_val = self.builder.build_load(ptr, "load");
+                            let cond = match (pat_val, ptr_val) {
+                                (
+                                    BasicValueEnum::IntValue(pat_val),
+                                    BasicValueEnum::IntValue(ptr_val),
+                                ) => self.builder.build_int_compare(
+                                    IntPredicate::EQ,
+                                    pat_val,
+                                    ptr_val,
+                                    "cond",
+                                ),
+                                _ => unimplemented!("tuple pattern match on value or adt"),
+                            };
+
+                            let then_block = self.llvm_ctx.append_basic_block(
+                                self.current_function.unwrap(),
+                                &format!("then_{}", i),
+                            );
+                            self.builder
+                                .build_conditional_branch(cond, then_block, fail_block);
+                            self.builder.position_at_end(then_block);
+                        }
+                        Pattern::TypeIdent(span, args) => {
+                            let patname = self.lexer.span_str(*span);
+                            let (_, tag) = self
+                                .compiler_ctx
+                                .constructor_signatures
+                                .get(patname)
+                                .unwrap_or_else(|| panic!("tag for {} not found", patname));
+                            let tag_value = self.llvm_ctx.i64_type().const_int(*tag as u64, false);
+                            let ptr = self
+                                .builder
+                                .build_load(
+                                    ptr,
+                                    &format!("deref_{}", ptr.get_name().to_str().unwrap()),
+                                )
+                                .into_pointer_value();
+                            let tag_ptr = self
+                                .builder
+                                .build_struct_gep(ptr, 0, "tag_ptr")
+                                .expect("type check should have caught this");
+                            let tag_ptr_value = self.builder.build_load(tag_ptr, "tag");
+                            let cond = self.builder.build_int_compare(
+                                IntPredicate::EQ,
+                                tag_ptr_value.into_int_value(),
+                                tag_value,
+                                "cond",
+                            );
+                            let then_block = self.llvm_ctx.append_basic_block(
+                                self.current_function.unwrap(),
+                                &format!("then_{}", i),
+                            );
+                            self.builder
+                                .build_conditional_branch(cond, then_block, fail_block);
+                            self.builder.position_at_end(then_block);
+
+                            let param_inner_ptr = self
+                                .builder
+                                .build_struct_gep(ptr, 1, "param_ptr")
+                                .expect("attempt to extract data struct on non adt type");
+                            self.patmatch_args(args, param_inner_ptr, fail_block)?;
+                        }
+                    }
+                }
+            }
+
+            TypePatternArgs::Struct(_patterns) => {
+                unimplemented!("struct pattern match")
+            }
+        }
+        Ok(())
     }
 
     fn build_int_case(
