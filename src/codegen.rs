@@ -1276,7 +1276,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     self.llvm_ctx.i8_type().ptr_type(AddressSpace::default()),
                     "string",
                 );
-                Ok(Some(ptr.as_basic_value_enum()))
+                let string_ptr = self.builder.build_alloca(ptr.get_type(), "string_ptr");
+                self.builder.build_store(string_ptr, ptr);
+
+                Ok(Some(string_ptr.as_basic_value_enum()))
             }
             Expr::FunctionCall { name, args, .. } => {
                 let func_name = self.lexer.span_str(*name);

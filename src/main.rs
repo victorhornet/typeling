@@ -19,7 +19,6 @@ lrpar_mod!("language/typeling.y");
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    #[arg(short, long)]
     input: String,
 
     #[arg(short, default_value = "false")]
