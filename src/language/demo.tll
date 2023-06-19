@@ -3,8 +3,57 @@ type Option = Some i64 | None
 
 type List = Node i64 List | Empty
 
-fn main() -> i64 {
 
+type BinTree = BNode i64 BinTree BinTree | BEmpty
+
+
+fn insert(x: i64, root: BinTree) -> BinTree {
+    return case root {
+        BNode (y, left, right) => case x < y {
+            0 => BNode (y, left, insert(x, right)),
+            _ => BNode (y, insert(x, left), right),
+        },
+        _ => BNode (x, BEmpty, BEmpty),
+    };
+}
+
+fn insert_mut(x: i64, root: BinTree) -> i64 {
+    case root {
+        BNode (y, left, right) => case x < y {
+            0 => insert_mut(x, right),
+            _ => insert_mut(x, left),
+        },
+        _ => helper_assign(root, BNode (x, BEmpty, BEmpty)),
+    };
+    return 0;
+}
+
+fn helper_assign(root: BinTree, new_root: BinTree) -> i64 {
+    root = new_root;
+    return 0;
+}
+
+fn get_min(root: BinTree) -> i64 {
+    return case root {
+        BNode (x, BEmpty, _) => x,
+        BNode (_, left, _) => get_min(left),
+        _ => 0,
+    };
+}
+
+fn main() -> i64 {
+    return bintree_demo();
+}
+
+fn bintree_demo() -> i64 {
+    tree := BNode (5, BNode (3, BEmpty, BEmpty), BNode (7, BEmpty, BEmpty));
+    tree = insert(4, tree);
+    tree = insert(6, tree);
+    tree = insert(2, tree);
+    return get_min(tree);
+}
+
+fn list_demo() -> i64 {    
     list := Node (2, Node (3, Empty)); 
     
     x := head(list);
@@ -20,10 +69,7 @@ fn main() -> i64 {
 
     printf("list[4] = %lli\n", unwrap_or_default(get(4, list))); //unwrap_or_default(get(5, list)) //unwrap_or_default(head(tail(tail(tail(list))))
     
-    return case 5 + 6 {
-        11 => 404,
-        _ => 200,
-    };
+    return 0;
 }
 
 fn get(i: i64, l: List) -> Option {

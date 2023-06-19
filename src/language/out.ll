@@ -1,6 +1,9 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
+%BinTree = type { i64, %constructor_BNode }
+%constructor_BNode = type { i64, %BinTree*, %BinTree* }
+%constructor_BEmpty = type {}
 %List = type { i64, %constructor_Node }
 %constructor_Node = type { i64, %List* }
 %constructor_Empty = type {}
@@ -15,7 +18,349 @@ source_filename = "main"
 
 declare i64 @printf(i8*, ...)
 
+define %BinTree* @insert(i64 %x, %BinTree* %root) {
+entry:
+  %x1 = alloca i64, align 8
+  store i64 %x, i64* %x1, align 4
+  %root2 = alloca %BinTree*, align 8
+  store %BinTree* %root, %BinTree** %root2, align 8
+  %load = load %BinTree*, %BinTree** %root2, align 8
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 1
+  %tag_ptr51 = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr51, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %BNode_block
+  ]
+
+after_case:                                       ; preds = %case_else, %after_case9
+  %case_result52 = load i64, i64* %case_result_ptr, align 4
+  %case_result_adt_ptr53 = inttoptr i64 %case_result52 to %BinTree*
+  ret %BinTree* %case_result_adt_ptr53
+
+case_else:                                        ; preds = %entry, %BNode_block3
+  %malloccall32 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt33 = bitcast i8* %malloccall32 to %BinTree*
+  %tag_ptr34 = getelementptr inbounds %BinTree, %BinTree* %gadt33, i32 0, i32 0
+  store i64 1, i64* %tag_ptr34, align 4
+  %temp_inner_ptr35 = getelementptr inbounds %BinTree, %BinTree* %gadt33, i32 0, i32 1
+  %param36 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr35, i32 0, i32 0
+  %load37 = load i64, i64* %x1, align 4
+  store i64 %load37, i64* %param36, align 4
+  %param38 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr35, i32 0, i32 1
+  %malloccall39 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt40 = bitcast i8* %malloccall39 to %BinTree*
+  %tag_ptr41 = getelementptr inbounds %BinTree, %BinTree* %gadt40, i32 0, i32 0
+  store i64 0, i64* %tag_ptr41, align 4
+  %temp_inner_ptr42 = getelementptr inbounds %BinTree, %BinTree* %gadt40, i32 0, i32 1
+  %inner_ptr43 = bitcast %constructor_BNode* %temp_inner_ptr42 to %constructor_BEmpty*
+  store %BinTree* %gadt40, %BinTree** %param38, align 8
+  %param44 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr35, i32 0, i32 2
+  %malloccall45 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt46 = bitcast i8* %malloccall45 to %BinTree*
+  %tag_ptr47 = getelementptr inbounds %BinTree, %BinTree* %gadt46, i32 0, i32 0
+  store i64 0, i64* %tag_ptr47, align 4
+  %temp_inner_ptr48 = getelementptr inbounds %BinTree, %BinTree* %gadt46, i32 0, i32 1
+  %inner_ptr49 = bitcast %constructor_BNode* %temp_inner_ptr48 to %constructor_BEmpty*
+  store %BinTree* %gadt46, %BinTree** %param44, align 8
+  %ptr_value50 = ptrtoint %BinTree* %gadt33 to i64
+  store i64 %ptr_value50, i64* %case_result_ptr, align 4
+  br label %after_case
+
+BNode_block:                                      ; preds = %entry
+  %param = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 0
+  %param4 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 1
+  %param5 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 2
+  %load6 = load i64, i64* %x1, align 4
+  %load7 = load i64, i64* %param, align 4
+  %lt = icmp slt i64 %load6, %load7
+  %lt_i64 = sext i1 %lt to i64
+  %case_result_ptr8 = alloca i64, align 8
+  switch i64 %lt_i64, label %case_else10 [
+    i64 0, label %value_branch
+  ]
+
+BNode_block3:                                     ; No predecessors!
+  br label %case_else
+
+after_case9:                                      ; preds = %case_else10, %value_branch
+  %case_result = load i64, i64* %case_result_ptr8, align 4
+  %case_result_adt_ptr = inttoptr i64 %case_result to %BinTree*
+  %ptr_value31 = ptrtoint %BinTree* %case_result_adt_ptr to i64
+  store i64 %ptr_value31, i64* %case_result_ptr, align 4
+  br label %after_case
+
+case_else10:                                      ; preds = %BNode_block
+  %malloccall18 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt19 = bitcast i8* %malloccall18 to %BinTree*
+  %tag_ptr20 = getelementptr inbounds %BinTree, %BinTree* %gadt19, i32 0, i32 0
+  store i64 1, i64* %tag_ptr20, align 4
+  %temp_inner_ptr21 = getelementptr inbounds %BinTree, %BinTree* %gadt19, i32 0, i32 1
+  %param22 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr21, i32 0, i32 0
+  %load23 = load i64, i64* %param, align 4
+  store i64 %load23, i64* %param22, align 4
+  %param24 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr21, i32 0, i32 1
+  %load25 = load i64, i64* %x1, align 4
+  %load26 = load %BinTree*, %BinTree** %param4, align 8
+  %call27 = call %BinTree* @insert(i64 %load25, %BinTree* %load26)
+  store %BinTree* %call27, %BinTree** %param24, align 8
+  %param28 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr21, i32 0, i32 2
+  %load29 = load %BinTree*, %BinTree** %param5, align 8
+  store %BinTree* %load29, %BinTree** %param28, align 8
+  %ptr_value30 = ptrtoint %BinTree* %gadt19 to i64
+  store i64 %ptr_value30, i64* %case_result_ptr8, align 4
+  br label %after_case9
+
+value_branch:                                     ; preds = %BNode_block
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %BinTree*
+  %tag_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
+  store i64 1, i64* %tag_ptr, align 4
+  %temp_inner_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
+  %param11 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 0
+  %load12 = load i64, i64* %param, align 4
+  store i64 %load12, i64* %param11, align 4
+  %param13 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 1
+  %load14 = load %BinTree*, %BinTree** %param4, align 8
+  store %BinTree* %load14, %BinTree** %param13, align 8
+  %param15 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 2
+  %load16 = load i64, i64* %x1, align 4
+  %load17 = load %BinTree*, %BinTree** %param5, align 8
+  %call = call %BinTree* @insert(i64 %load16, %BinTree* %load17)
+  store %BinTree* %call, %BinTree** %param15, align 8
+  %ptr_value = ptrtoint %BinTree* %gadt to i64
+  store i64 %ptr_value, i64* %case_result_ptr8, align 4
+  br label %after_case9
+}
+
+define i64 @insert_mut(i64 %x, %BinTree* %root) {
+entry:
+  %x1 = alloca i64, align 8
+  store i64 %x, i64* %x1, align 4
+  %root2 = alloca %BinTree*, align 8
+  store %BinTree* %root, %BinTree** %root2, align 8
+  %load = load %BinTree*, %BinTree** %root2, align 8
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 1
+  %tag_ptr32 = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr32, align 4
+  switch i64 %tag, label %case_else [
+    i64 1, label %BNode_block
+  ]
+
+after_case:                                       ; preds = %case_else, %after_case9
+  %case_result33 = load i64, i64* %case_result_ptr, align 4
+  ret i64 0
+
+case_else:                                        ; preds = %entry, %BNode_block3
+  %load16 = load %BinTree*, %BinTree** %root2, align 8
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %BinTree*
+  %tag_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
+  store i64 1, i64* %tag_ptr, align 4
+  %temp_inner_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
+  %param17 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 0
+  %load18 = load i64, i64* %x1, align 4
+  store i64 %load18, i64* %param17, align 4
+  %param19 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 1
+  %malloccall20 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt21 = bitcast i8* %malloccall20 to %BinTree*
+  %tag_ptr22 = getelementptr inbounds %BinTree, %BinTree* %gadt21, i32 0, i32 0
+  store i64 0, i64* %tag_ptr22, align 4
+  %temp_inner_ptr23 = getelementptr inbounds %BinTree, %BinTree* %gadt21, i32 0, i32 1
+  %inner_ptr24 = bitcast %constructor_BNode* %temp_inner_ptr23 to %constructor_BEmpty*
+  store %BinTree* %gadt21, %BinTree** %param19, align 8
+  %param25 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 2
+  %malloccall26 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt27 = bitcast i8* %malloccall26 to %BinTree*
+  %tag_ptr28 = getelementptr inbounds %BinTree, %BinTree* %gadt27, i32 0, i32 0
+  store i64 0, i64* %tag_ptr28, align 4
+  %temp_inner_ptr29 = getelementptr inbounds %BinTree, %BinTree* %gadt27, i32 0, i32 1
+  %inner_ptr30 = bitcast %constructor_BNode* %temp_inner_ptr29 to %constructor_BEmpty*
+  store %BinTree* %gadt27, %BinTree** %param25, align 8
+  %call31 = call i64 @helper_assign(%BinTree* %load16, %BinTree* %gadt)
+  store i64 %call31, i64* %case_result_ptr, align 4
+  br label %after_case
+
+BNode_block:                                      ; preds = %entry
+  %param = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 0
+  %param4 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 1
+  %param5 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 2
+  %load6 = load i64, i64* %x1, align 4
+  %load7 = load i64, i64* %param, align 4
+  %lt = icmp slt i64 %load6, %load7
+  %lt_i64 = sext i1 %lt to i64
+  %case_result_ptr8 = alloca i64, align 8
+  switch i64 %lt_i64, label %case_else10 [
+    i64 0, label %value_branch
+  ]
+
+BNode_block3:                                     ; No predecessors!
+  br label %case_else
+
+after_case9:                                      ; preds = %case_else10, %value_branch
+  %case_result = load i64, i64* %case_result_ptr8, align 4
+  store i64 %case_result, i64* %case_result_ptr, align 4
+  br label %after_case
+
+case_else10:                                      ; preds = %BNode_block
+  %load13 = load i64, i64* %x1, align 4
+  %load14 = load %BinTree*, %BinTree** %param4, align 8
+  %call15 = call i64 @insert_mut(i64 %load13, %BinTree* %load14)
+  store i64 %call15, i64* %case_result_ptr8, align 4
+  br label %after_case9
+
+value_branch:                                     ; preds = %BNode_block
+  %load11 = load i64, i64* %x1, align 4
+  %load12 = load %BinTree*, %BinTree** %param5, align 8
+  %call = call i64 @insert_mut(i64 %load11, %BinTree* %load12)
+  store i64 %call, i64* %case_result_ptr8, align 4
+  br label %after_case9
+}
+
+define i64 @helper_assign(%BinTree* %root, %BinTree* %new_root) {
+entry:
+  %root1 = alloca %BinTree*, align 8
+  store %BinTree* %root, %BinTree** %root1, align 8
+  %new_root2 = alloca %BinTree*, align 8
+  store %BinTree* %new_root, %BinTree** %new_root2, align 8
+  %assign_deref = load %BinTree*, %BinTree** %new_root2, align 8
+  store %BinTree* %assign_deref, %BinTree** %root1, align 8
+  ret i64 0
+}
+
+define i64 @get_min(%BinTree* %root) {
+entry:
+  %root1 = alloca %BinTree*, align 8
+  store %BinTree* %root, %BinTree** %root1, align 8
+  %load = load %BinTree*, %BinTree** %root1, align 8
+  %case_result_ptr = alloca i64, align 8
+  %inner_ptr = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 1
+  %tag_ptr11 = getelementptr inbounds %BinTree, %BinTree* %load, i32 0, i32 0
+  %tag12 = load i64, i64* %tag_ptr11, align 4
+  switch i64 %tag12, label %case_else [
+    i64 1, label %BNode_block
+  ]
+
+after_case:                                       ; preds = %case_else, %BNode_block2, %then_1
+  %case_result = load i64, i64* %case_result_ptr, align 4
+  ret i64 %case_result
+
+case_else:                                        ; preds = %entry, %BNode_block26
+  store i64 0, i64* %case_result_ptr, align 4
+  br label %after_case
+
+BNode_block:                                      ; preds = %entry
+  %param = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 0
+  %param3 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 1
+  %deref_param3 = load %BinTree*, %BinTree** %param3, align 8
+  %tag_ptr = getelementptr inbounds %BinTree, %BinTree* %deref_param3, i32 0, i32 0
+  %tag = load i64, i64* %tag_ptr, align 4
+  %cond = icmp eq i64 %tag, 0
+  br i1 %cond, label %then_1, label %BNode_block2
+
+BNode_block2:                                     ; preds = %BNode_block
+  %param7 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 0
+  %param8 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 1
+  %param9 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 2
+  %load10 = load %BinTree*, %BinTree** %param8, align 8
+  %call = call i64 @get_min(%BinTree* %load10)
+  store i64 %call, i64* %case_result_ptr, align 4
+  br label %after_case
+
+then_1:                                           ; preds = %BNode_block
+  %param_ptr = getelementptr inbounds %BinTree, %BinTree* %deref_param3, i32 0, i32 1
+  %param4 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %inner_ptr, i32 0, i32 2
+  %load5 = load i64, i64* %param, align 4
+  store i64 %load5, i64* %case_result_ptr, align 4
+  br label %after_case
+
+BNode_block26:                                    ; No predecessors!
+  br label %case_else
+}
+
 define i64 @main() {
+entry:
+  %call = call i64 @bintree_demo()
+  ret i64 %call
+}
+
+define i64 @bintree_demo() {
+entry:
+  %malloccall = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt = bitcast i8* %malloccall to %BinTree*
+  %tag_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 0
+  store i64 1, i64* %tag_ptr, align 4
+  %temp_inner_ptr = getelementptr inbounds %BinTree, %BinTree* %gadt, i32 0, i32 1
+  %param = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 0
+  store i64 5, i64* %param, align 4
+  %param1 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 1
+  %malloccall2 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt3 = bitcast i8* %malloccall2 to %BinTree*
+  %tag_ptr4 = getelementptr inbounds %BinTree, %BinTree* %gadt3, i32 0, i32 0
+  store i64 1, i64* %tag_ptr4, align 4
+  %temp_inner_ptr5 = getelementptr inbounds %BinTree, %BinTree* %gadt3, i32 0, i32 1
+  %param6 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr5, i32 0, i32 0
+  store i64 3, i64* %param6, align 4
+  %param7 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr5, i32 0, i32 1
+  %malloccall8 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt9 = bitcast i8* %malloccall8 to %BinTree*
+  %tag_ptr10 = getelementptr inbounds %BinTree, %BinTree* %gadt9, i32 0, i32 0
+  store i64 0, i64* %tag_ptr10, align 4
+  %temp_inner_ptr11 = getelementptr inbounds %BinTree, %BinTree* %gadt9, i32 0, i32 1
+  %inner_ptr = bitcast %constructor_BNode* %temp_inner_ptr11 to %constructor_BEmpty*
+  store %BinTree* %gadt9, %BinTree** %param7, align 8
+  %param12 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr5, i32 0, i32 2
+  %malloccall13 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt14 = bitcast i8* %malloccall13 to %BinTree*
+  %tag_ptr15 = getelementptr inbounds %BinTree, %BinTree* %gadt14, i32 0, i32 0
+  store i64 0, i64* %tag_ptr15, align 4
+  %temp_inner_ptr16 = getelementptr inbounds %BinTree, %BinTree* %gadt14, i32 0, i32 1
+  %inner_ptr17 = bitcast %constructor_BNode* %temp_inner_ptr16 to %constructor_BEmpty*
+  store %BinTree* %gadt14, %BinTree** %param12, align 8
+  store %BinTree* %gadt3, %BinTree** %param1, align 8
+  %param18 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr, i32 0, i32 2
+  %malloccall19 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt20 = bitcast i8* %malloccall19 to %BinTree*
+  %tag_ptr21 = getelementptr inbounds %BinTree, %BinTree* %gadt20, i32 0, i32 0
+  store i64 1, i64* %tag_ptr21, align 4
+  %temp_inner_ptr22 = getelementptr inbounds %BinTree, %BinTree* %gadt20, i32 0, i32 1
+  %param23 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr22, i32 0, i32 0
+  store i64 7, i64* %param23, align 4
+  %param24 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr22, i32 0, i32 1
+  %malloccall25 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt26 = bitcast i8* %malloccall25 to %BinTree*
+  %tag_ptr27 = getelementptr inbounds %BinTree, %BinTree* %gadt26, i32 0, i32 0
+  store i64 0, i64* %tag_ptr27, align 4
+  %temp_inner_ptr28 = getelementptr inbounds %BinTree, %BinTree* %gadt26, i32 0, i32 1
+  %inner_ptr29 = bitcast %constructor_BNode* %temp_inner_ptr28 to %constructor_BEmpty*
+  store %BinTree* %gadt26, %BinTree** %param24, align 8
+  %param30 = getelementptr inbounds %constructor_BNode, %constructor_BNode* %temp_inner_ptr22, i32 0, i32 2
+  %malloccall31 = tail call i8* @malloc(i32 ptrtoint (%BinTree* getelementptr (%BinTree, %BinTree* null, i32 1) to i32))
+  %gadt32 = bitcast i8* %malloccall31 to %BinTree*
+  %tag_ptr33 = getelementptr inbounds %BinTree, %BinTree* %gadt32, i32 0, i32 0
+  store i64 0, i64* %tag_ptr33, align 4
+  %temp_inner_ptr34 = getelementptr inbounds %BinTree, %BinTree* %gadt32, i32 0, i32 1
+  %inner_ptr35 = bitcast %constructor_BNode* %temp_inner_ptr34 to %constructor_BEmpty*
+  store %BinTree* %gadt32, %BinTree** %param30, align 8
+  store %BinTree* %gadt20, %BinTree** %param18, align 8
+  %tree = alloca %BinTree*, align 8
+  store %BinTree* %gadt, %BinTree** %tree, align 8
+  %load = load %BinTree*, %BinTree** %tree, align 8
+  %call = call %BinTree* @insert(i64 4, %BinTree* %load)
+  store %BinTree* %call, %BinTree** %tree, align 8
+  %load36 = load %BinTree*, %BinTree** %tree, align 8
+  %call37 = call %BinTree* @insert(i64 6, %BinTree* %load36)
+  store %BinTree* %call37, %BinTree** %tree, align 8
+  %load38 = load %BinTree*, %BinTree** %tree, align 8
+  %call39 = call %BinTree* @insert(i64 2, %BinTree* %load38)
+  store %BinTree* %call39, %BinTree** %tree, align 8
+  %load40 = load %BinTree*, %BinTree** %tree, align 8
+  %call41 = call i64 @get_min(%BinTree* %load40)
+  ret i64 %call41
+}
+
+define i64 @list_demo() {
 entry:
   %malloccall = tail call i8* @malloc(i32 ptrtoint (%List* getelementptr (%List, %List* null, i32 1) to i32))
   %gadt = bitcast i8* %malloccall to %List*
@@ -95,22 +440,7 @@ entry:
   %call43 = call %Option* @get(i64 4, %List* %load42)
   %call44 = call i64 @unwrap_or_default(%Option* %call43)
   %call45 = call i64 (i8*, ...) @printf(i8* %load41, i64 %call44)
-  %case_result_ptr = alloca i64, align 8
-  switch i64 11, label %case_else [
-    i64 11, label %value_branch
-  ]
-
-after_case:                                       ; preds = %case_else, %value_branch
-  %case_result = load i64, i64* %case_result_ptr, align 4
-  ret i64 %case_result
-
-case_else:                                        ; preds = %entry
-  store i64 200, i64* %case_result_ptr, align 4
-  br label %after_case
-
-value_branch:                                     ; preds = %entry
-  store i64 404, i64* %case_result_ptr, align 4
-  br label %after_case
+  ret i64 0
 }
 
 define %Option* @get(i64 %i, %List* %l) {
@@ -137,7 +467,7 @@ case_else:                                        ; preds = %entry, %Node_block3
   %malloccall15 = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
   %gadt16 = bitcast i8* %malloccall15 to %Option*
   %tag_ptr17 = getelementptr inbounds %Option, %Option* %gadt16, i32 0, i32 0
-  store i64 1, i64* %tag_ptr17, align 4
+  store i64 0, i64* %tag_ptr17, align 4
   %temp_inner_ptr18 = getelementptr inbounds %Option, %Option* %gadt16, i32 0, i32 1
   %inner_ptr19 = bitcast %constructor_Some* %temp_inner_ptr18 to %constructor_None*
   %ptr_value20 = ptrtoint %Option* %gadt16 to i64
@@ -176,7 +506,7 @@ value_branch:                                     ; preds = %Node_block
   %malloccall = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
   %gadt = bitcast i8* %malloccall to %Option*
   %tag_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %temp_inner_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 1
   %param9 = getelementptr inbounds %constructor_Some, %constructor_Some* %temp_inner_ptr, i32 0, i32 0
   %load10 = load i64, i64* %param, align 4
@@ -322,7 +652,7 @@ case_else:                                        ; preds = %entry, %Node_block2
   %malloccall6 = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
   %gadt7 = bitcast i8* %malloccall6 to %Option*
   %tag_ptr8 = getelementptr inbounds %Option, %Option* %gadt7, i32 0, i32 0
-  store i64 1, i64* %tag_ptr8, align 4
+  store i64 0, i64* %tag_ptr8, align 4
   %temp_inner_ptr9 = getelementptr inbounds %Option, %Option* %gadt7, i32 0, i32 1
   %inner_ptr10 = bitcast %constructor_Some* %temp_inner_ptr9 to %constructor_None*
   %ptr_value11 = ptrtoint %Option* %gadt7 to i64
@@ -335,7 +665,7 @@ Node_block:                                       ; preds = %entry
   %malloccall = tail call i8* @malloc(i32 ptrtoint (%Option* getelementptr (%Option, %Option* null, i32 1) to i32))
   %gadt = bitcast i8* %malloccall to %Option*
   %tag_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %temp_inner_ptr = getelementptr inbounds %Option, %Option* %gadt, i32 0, i32 1
   %param4 = getelementptr inbounds %constructor_Some, %constructor_Some* %temp_inner_ptr, i32 0, i32 0
   %load5 = load i64, i64* %param, align 4
@@ -399,7 +729,7 @@ entry:
   %tag_ptr = getelementptr inbounds %Option, %Option* %load, i32 0, i32 0
   %tag = load i64, i64* %tag_ptr, align 4
   switch i64 %tag, label %case_else [
-    i64 0, label %Some_block
+    i64 1, label %Some_block
   ]
 
 after_case:                                       ; preds = %case_else, %Some_block

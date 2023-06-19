@@ -460,45 +460,45 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::And(_) => match ops {
-            (Type::Bool, Type::Bool) => Ok(Type::Bool),
+            (Type::Bool, Type::Bool) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Or(_) => match ops {
-            (Type::Bool, Type::Bool) => Ok(Type::Bool),
+            (Type::Bool, Type::Bool) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Eq(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
-            (Type::String(_), Type::String(_)) => Ok(Type::Bool),
-            (Type::Bool, Type::Bool) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
+            (Type::String(_), Type::String(_)) => Ok(Type::Int),
+            (Type::Bool, Type::Bool) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Neq(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
-            (Type::String(_), Type::String(_)) => Ok(Type::Bool),
-            (Type::Bool, Type::Bool) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
+            (Type::String(_), Type::String(_)) => Ok(Type::Int),
+            (Type::Bool, Type::Bool) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Lt(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Gt(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Lte(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Gte(_) => match ops {
-            (Type::Int, Type::Int) => Ok(Type::Bool),
-            (Type::Float, Type::Float) => Ok(Type::Bool),
+            (Type::Int, Type::Int) => Ok(Type::Int),
+            (Type::Float, Type::Float) => Ok(Type::Int),
             _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
     }
@@ -507,7 +507,7 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
 fn unop_type(unop: &UnOp, op: Type) -> TypeCheckResult<Type> {
     match unop {
         UnOp::Not(_) => match op {
-            Type::Bool => Ok(Type::Bool),
+            Type::Bool => Ok(Type::Int),
             t => Err(vec![TypeCheckError::UnOpTypeMismatch(t)]),
         },
         UnOp::Neg(_) => match op {
