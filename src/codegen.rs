@@ -278,11 +278,8 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     .visit_expr(e)?
                     .expect("expr should return a value")
                     .into_pointer_value();
-                if elem_type.is_pointer_type() {
-                    res.as_basic_value_enum()
-                } else {
-                    self.builder.build_load(res, "load")
-                }
+
+                self.builder.build_load(res, "load")
             }
             e @ Expr::ConstructorCall { .. } => {
                 self.visit_expr(e)?.expect("expr should return a value")
@@ -440,6 +437,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.build_switch(tag_value, else_block, &cases);
 
         self.builder.position_at_end(exit_block);
+        self.cast_case_result(case_result_ptr, return_type)
+    }
+
+    fn cast_case_result(
+        &mut self,
+        case_result_ptr: PointerValue<'ctx>,
+        return_type: Option<BasicTypeEnum<'ctx>>,
+    ) -> Result<Option<BasicValueEnum<'ctx>>, Box<dyn Error>> {
         let result_value = self.builder.build_load(case_result_ptr, "case_result");
         if let Some(rtype) = return_type {
             if rtype.is_pointer_type() {
@@ -578,7 +583,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     ) -> CodeGenResult<'ctx> {
         let case_result_ptr = self
             .builder
-            .build_alloca(self.llvm_ctx.i64_type(), "case_return");
+            .build_alloca(self.llvm_ctx.i64_type(), "case_result_ptr");
         let exit_block = self
             .llvm_ctx
             .append_basic_block(self.current_function.unwrap(), "after_case");
@@ -591,21 +596,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         for (pattern, branch) in patterns.iter() {
             match pattern {
                 Pattern::Value(inner_expr) => {
-                    let branch_block = self
-                        .llvm_ctx
-                        .append_basic_block(self.current_function.unwrap(), "value_branch");
-                    self.builder.position_at_end(branch_block);
-                    let branch_res = match branch {
-                        CaseBranchBody::Block(block) => self.visit_block(block)?,
-                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
-                    };
-                    self.builder.build_store(
-                        case_result_ptr,
-                        branch_res
-                            .expect("branch should return a value, block doesn't do that yet"),
-                    );
-                    self.builder.build_unconditional_branch(exit_block);
-                    self.builder.position_at_end(exit_block);
                     let inner_value = self
                         .read_expr_value(inner_expr)?
                         .expect("expr should return a value");
@@ -615,6 +605,32 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                             inner_value.get_type()
                         );
                     }
+
+                    let branch_block = self
+                        .llvm_ctx
+                        .append_basic_block(self.current_function.unwrap(), "value_branch");
+                    self.builder.position_at_end(branch_block);
+                    let branch_res = match branch {
+                        CaseBranchBody::Block(block) => self.visit_block(block)?,
+                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+                    }
+                    .expect("branch should return a value");
+                    match return_type {
+                        None => {
+                            let ty = branch_res.get_type();
+                            return_type = Some(ty);
+                        }
+                        Some(t) => {
+                            if t != branch_res.get_type() {
+                                panic!("inconsistent return types in case expression")
+                            }
+                        }
+                    }
+
+                    self.store_case_result(branch_res, case_result_ptr);
+                    self.builder.build_unconditional_branch(exit_block);
+                    self.builder.position_at_end(exit_block);
+
                     cases.push((inner_value.into_int_value(), branch_block));
                 }
                 Pattern::Ident(span) => {
@@ -647,23 +663,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.position_at_end(current_block);
         self.builder.build_switch(value, else_block, &cases);
         self.builder.position_at_end(exit_block);
-        let result = self
-            .builder
-            .build_load(case_result_ptr, "case_result_value");
-        if let Some(rtype) = return_type {
-            if rtype.is_pointer_type() {
-                return Ok(Some(
-                    self.builder
-                        .build_int_to_ptr(
-                            result.into_int_value(),
-                            rtype.into_pointer_type(),
-                            "case_result_adt_ptr",
-                        )
-                        .as_basic_value_enum(),
-                ));
-            }
-        }
-        Ok(Some(result))
+        self.cast_case_result(case_result_ptr, return_type)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -793,18 +793,22 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             .get(fn_name)
             .expect("function must exist");
         self.current_function = Some(*fn_value);
-        for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
-            let param_name = self.lexer.span_str(param.name);
-            let param_value = fn_value.get_nth_param(i as u32).unwrap();
-
-            param_value.set_name(param_name);
-            self.compiler_ctx
-                .basic_value_stack
-                .insert(param_name, (param_value, true));
-        }
 
         let entry_basic_block = self.llvm_ctx.append_basic_block(*fn_value, "entry");
         self.builder.position_at_end(entry_basic_block);
+
+        for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
+            let param_name = self.lexer.span_str(param.name);
+            let param_value = fn_value.get_nth_param(i as u32).unwrap();
+            param_value.set_name(param_name);
+            let param_local_var = self
+                .builder
+                .build_alloca(param_value.get_type(), param_name);
+            self.builder.build_store(param_local_var, param_value);
+            self.compiler_ctx
+                .basic_value_stack
+                .insert(param_name, (param_local_var.as_basic_value_enum(), true));
+        }
 
         self.walk_block(&function_decl.body);
 

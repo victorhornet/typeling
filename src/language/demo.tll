@@ -1,0 +1,77 @@
+
+type Option = Some i64 | None
+
+type List = Node i64 List | Empty
+
+fn main() -> i64 {
+
+    list := Node (2, Node (3, Empty)); 
+    
+    x := head(list);
+    printf("x = %lli\n", unwrap_or_default(x));
+    y := tail(list);
+    z := head(y);
+    printf("z = %lli\n", unwrap_or_default(z));
+
+    list = Node(1, list);
+    printf("head(list) = %lli\n", unwrap_or_default(head(list)));
+
+    list = append(4, list);
+
+    printf("list[4] = %lli\n", unwrap_or_default(get(4, list))); //unwrap_or_default(get(5, list)) //unwrap_or_default(head(tail(tail(tail(list))))
+    
+    return case 5 + 6 {
+        11 => 404,
+        _ => 200,
+    };
+}
+
+fn get(i: i64, l: List) -> Option {
+    return case l {
+        Node (x, xs) => case i { 0 => Some(x), _ => get(i - 1, xs) },
+        _ => None,
+    };
+}
+
+fn prepend(x: i64, xs: List) -> List {
+    return Node (x, xs);
+}
+
+
+fn append(x: i64, xs: List) -> List {
+    return case xs {
+        Node (y, ys) => Node (y, append(x, ys)),
+        _ => Node (x, Empty),
+    };
+}
+
+fn is_empty(l: List) -> i64 {
+    return case l {
+        Empty => -1,
+        _ => 0,
+    };
+}
+
+fn head(l: List) -> Option {
+    return case l {
+        Node (x, _) => Some(x),
+        _ => None,
+    };
+}
+
+
+fn tail(l: List) -> List {
+    return case l {
+        Node (_, xs) => xs,
+        _ => Empty,
+    };
+}
+
+
+fn unwrap_or_default(x: Option) -> i64 {
+    return case x {
+        Some(i) => i,
+        _ => 0,
+    };
+}
+
