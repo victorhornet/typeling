@@ -10,7 +10,7 @@ use compiler::CompilerContext;
 use inkwell::context::Context;
 use lrlex::{lrlex_mod, LexerDef};
 use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
-use std::{env, fs, path::Path};
+use std::{env, fs, path::Path, process::ExitCode};
 use type_system::TypeSystem;
 
 lrlex_mod!("language/typeling.l");
@@ -45,7 +45,7 @@ pub struct Args {
     output: Option<String>,
 }
 
-fn main() {
+fn main() -> Result<(), ExitCode> {
     let lexerdef = typeling_l::lexerdef();
     let args = Args::parse();
     let input = fs::read_to_string(Path::new(&args.input)).expect("Failed to read input");
@@ -79,21 +79,25 @@ fn main() {
                 }
 
                 if args.no_codegen {
-                    return;
+                    return Ok(());
                 }
 
-                //define items
-                let compiler_ctx = CompilerContext::new();
+                let mut compiler_ctx = CompilerContext::new();
+                let llvm_context = Context::create();
 
-                // let mut type_system = TypeSystem::new(&mut compiler_ctx);
-                // type_system.type_definition_pass(&lexer, &file);
-                //.type_check_pass(&lexer, &file);
+                if let Err(type_check_errors) = TypeSystem::new(&mut compiler_ctx, &llvm_context)
+                    .type_definition_pass(&lexer, &file)
+                    .type_check_pass(&lexer, &file)
+                {
+                    println!("{type_check_errors}");
+                    return Ok(());
+                }
 
-                let context = Context::create();
-                let mut codegen = CodeGen::new(&lexer, &context, compiler_ctx);
+                let mut codegen = CodeGen::new(&lexer, &llvm_context, compiler_ctx);
                 codegen.compile(&file, &args);
             }
         }
         None => eprintln!("Parse failed"),
-    }
+    };
+    Ok(())
 }

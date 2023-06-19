@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::HashMap, error::Error, path::Path};
 
 // globals definer -> type checker -> code generation
@@ -64,7 +65,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
     pub fn compile(&mut self, file: &File, args: &Args) {
-        self.define_types(file);
+        // self.define_types(file);
         self.define_functions(file);
         self.walk_file(file);
 
@@ -175,17 +176,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         Ok(res)
     }
 
-    fn define_types(&mut self, file: &File) {
-        for item in &file.items {
-            match item {
-                Item::TypeDecl(type_decl) => {
-                    self.visit_type_decl(type_decl).unwrap();
-                }
-                _ => continue,
-            }
-        }
-    }
-
     fn define_functions(&mut self, file: &File) {
         for item in &file.items {
             match item {
@@ -251,7 +241,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
     }
 
-    fn _get_basic_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
+    fn get_basic_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
         //todo return error
 
         match ty {
@@ -268,6 +258,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .llvm_ctx
                 .get_struct_type(name)
                 .unwrap_or_else(|| panic!("type {} not found", name))
+                .ptr_type(AddressSpace::default())
                 .as_basic_type_enum(),
             _ => unimplemented!(),
         }
@@ -928,7 +919,12 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 .ptr_type(AddressSpace::default())
                 .into(),
             Some(t) => unimplemented!("{:?}", t),
-            None => todo!("type inference"),
+            None => self.get_basic_type(
+                self.compiler_ctx
+                    .inferred_types
+                    .get(&var_decl.span)
+                    .expect("type checker must have inferred type"),
+            ),
         };
         let res = match &var_decl.value {
             Some(expr) => {
@@ -1313,7 +1309,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .compiler_ctx
                     .function_values
                     .get(func_name)
-                    .expect("function not found");
+                    .unwrap_or_else(|| panic!("{func_name} not found"));
                 let res = self
                     .builder
                     .build_call(*func, args.as_mut_slice(), "call")
@@ -1446,15 +1442,7 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
         }
     }
     fn visit_type_decl(&mut self, type_decl: &GADT) -> CodeGenResult<'ctx> {
-        //todo map llvm_type -> gadt
-        let llvm_type = gadt_to_type(type_decl, self.llvm_ctx);
-        // ! this is also done in the first type_definition_pass
-        for constructor in type_decl.get_tags().keys() {
-            self.compiler_ctx
-                .add_type_constructor(constructor, type_decl);
-        }
-        self.compiler_ctx.add_constructor_signatures(type_decl);
-        Ok(None)
+        panic!("Type declarations should be done before code generation");
     }
     fn visit_alias_decl(&mut self, alias: &AliasDecl) -> CodeGenResult<'ctx> {
         Ok(None)

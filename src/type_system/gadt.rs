@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::ast::Type;
 
@@ -10,6 +10,21 @@ pub struct GADT {
     pub generics: Vec<String>,
     constructors: Vec<GADTConstructor>,
     tags: HashMap<String, usize>,
+}
+
+impl Display for GADT {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut generics = String::new();
+        if !self.generics.is_empty() {
+            for (i, generic) in self.generics.iter().enumerate() {
+                generics.push_str(generic);
+                if i != self.generics.len() - 1 {
+                    generics.push(' ');
+                }
+            }
+        }
+        write!(f, "{} {}", self.name, generics)
+    }
 }
 
 impl GADT {

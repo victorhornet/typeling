@@ -1,14 +1,20 @@
 fn fun() -> i64 {
     a : i64 = 1;
     b : i64 = 2;
-    c : f64 = 3.0;
-    d : f64 = 4.0;
-    e : bool = true;
-    f : bool = false;
+    t : i64 = 1 == 1;
+    f : i64 = 1 == 0;
+
+    t == f
+    t != f
+    t < f
+    t > f
+    
+    t and f
+    t or f
 
     g : i64 = -10;
 
-    h := e && f;
+    h := e and f;
 
     x := 1;
     y := 2.0;

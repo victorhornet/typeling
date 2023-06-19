@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, fmt::Display};
 
 use cfgrammar::Span;
 
@@ -65,6 +65,20 @@ pub enum Type {
     String(usize),
     Ident(String),
     GADT(GADT),
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Unit => write!(f, "()"),
+            Type::Int => write!(f, "i64"),
+            Type::Float => write!(f, "f64"),
+            Type::Bool => write!(f, "bool"),
+            Type::String(_) => write!(f, "str"),
+            Type::Ident(s) => write!(f, "{}", s),
+            Type::GADT(g) => write!(f, "{}", g),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

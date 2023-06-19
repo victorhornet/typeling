@@ -750,11 +750,13 @@ dependencies = [
 name = "typeling"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cfgrammar",
  "clap",
  "inkwell",
  "lrlex",
  "lrpar",
+ "thiserror",
 ]
 
 [[package]]

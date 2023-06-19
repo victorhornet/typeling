@@ -7,14 +7,37 @@ type Wrapper(Test)
 
 type List = Cons i64 List | Nil
 
-fn main() -> i64 {
-    l: List = Cons (0, Cons (1, Cons (2, Cons (3, Cons (4, Nil)))));   
-    s: i64 = sum(l);
-    z: str = "s: %lli\n";
-    printf(z, s);
-    return s + unwrap_or_default(head(l));
+
+fn head(l: List) -> Option {
+    return case l {
+        Cons(x, _) => Some(x),
+        Nil => None,
+        _ => None,
+    };
 }
 
+fn unwrap_or_default(o: Option) -> i64 {
+    return case o {
+        Some(x) => x,
+        None => 0,
+        _ => 0,
+    };
+}
+
+fn is_empty(l: List) -> i64 {
+    return case l {
+        Nil => -1,
+        _ => 0,
+    };
+}
+
+fn tail(l: List) -> List {
+    return case l {
+        Cons(_, xs) => xs,
+        Nil => Nil,
+        _ => Nil,
+    };
+}
 
 fn sum(l: List) -> i64 {
     s: i64 = 0;
@@ -27,28 +50,19 @@ fn sum(l: List) -> i64 {
     return s;
 }
 
-fn is_empty(l: List) -> i64 {
-    return case l {
-        Nil => -1,
+fn main() -> i64 {
+    x := 10;
+    z := Cons (40, Nil);
+    y := case z {
+        Cons(x, _) => x,
         _ => 0,
     };
+    return unwrap_or_default(head(z)) + x + y;
 }
 
-fn head(l: List) -> Option {
-    return case l {
-        Cons(x, _) => Some(x),
-        Nil => None,
-        _ => None,
-    };
-}
 
-fn tail(l: List) -> List {
-    return case l {
-        Cons(_, xs) => xs,
-        Nil => Nil,
-        _ => Nil,
-    };
-}
+
+/*
 
 fn wrapper(w: Wrapper) -> i64 {
     return case w {
@@ -105,13 +119,7 @@ fn is_five(o: Option) -> i64 {
     };
 }
 
-fn unwrap_or_default(o: Option) -> i64 {
-    return case o {
-        Some(x) => x,
-        None => 0,
-        _ => 0,
-    };
-}
+
 
 fn useless_case(o: Option) -> i64 {
     return case o {
@@ -126,3 +134,4 @@ fn int_case(x: i64) -> i64 {
         t => t,
     };
 }
+*/

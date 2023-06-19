@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
-use inkwell::values::{BasicValueEnum, FunctionValue};
+use cfgrammar::Span;
+use inkwell::{
+    context::Context,
+    values::{BasicValueEnum, FunctionValue},
+};
+use thiserror::Error;
 
 use crate::{
     ast::Type,
     type_system::{GADTConstructor, TypeCheckError, GADT},
 };
-
-#[allow(dead_code)]
-struct Compiler;
 
 pub struct Stack<'input, T: Copy> {
     pub frames: Vec<StackFrame<'input, T>>,
@@ -63,8 +65,12 @@ impl<'input, T: Copy> Default for StackFrame<'input, T> {
     }
 }
 
+#[derive(Error, Debug)]
 pub enum CompileError {
+    #[error("Type error: {0}")]
     InvalidType(Box<TypeCheckError>),
+
+    #[error("Unimplemented feature")]
     Unimplemented,
 }
 
@@ -75,6 +81,7 @@ pub struct CompilerContext<'input, 'ctx> {
     pub aliases: HashMap<String, String>,
     pub basic_value_stack: Stack<'input, (BasicValueEnum<'ctx>, bool)>,
     pub function_values: HashMap<&'input str, FunctionValue<'ctx>>,
+    pub inferred_types: HashMap<Span, Type>,
 }
 
 impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
@@ -86,6 +93,7 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
             basic_value_stack: Stack::new(),
             function_values: HashMap::new(),
             constructor_signatures: HashMap::new(),
+            inferred_types: HashMap::new(),
         }
     }
     pub fn add_type_constructor(&mut self, name: &str, gadt: &GADT) {

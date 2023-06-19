@@ -6,11 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.71"
 cfgrammar = "0.13.1"
 clap = { version = "4.2.7", features = ["derive"] }
 inkwell = { version = "0.2.0", features = ["llvm14-0"] }
 lrlex = "0.13.1"
 lrpar = "0.13.1"
+thiserror = "1.0.40"
 
 
 

@@ -32,18 +32,22 @@ pub struct FunctionProto {
 }
 
 pub struct TypeSystem<'input, 'ctx, 'a> {
-    pub ctx: &'a mut CompilerContext<'input, 'ctx>,
+    pub compiler_ctx: &'a mut CompilerContext<'input, 'ctx>,
+    pub llvm_ctx: &'ctx Context,
 }
 
-impl<'lexer, 'input, 'ctx, 'a> TypeSystem<'input, 'ctx, 'a> {
-    pub fn new(ctx: &'a mut CompilerContext<'input, 'ctx>) -> Self {
-        Self { ctx }
+impl<'lexer, 'input, 'lctx, 'cctx> TypeSystem<'input, 'lctx, 'cctx> {
+    pub fn new(ctx: &'cctx mut CompilerContext<'input, 'lctx>, llvm_ctx: &'lctx Context) -> Self {
+        Self {
+            compiler_ctx: ctx,
+            llvm_ctx,
+        }
     }
     pub fn add_type(&mut self, name: impl Into<String>, ty: Type) {
-        self.ctx.types.insert(name.into(), ty);
+        self.compiler_ctx.types.insert(name.into(), ty);
     }
     pub fn get_type(&self, name: impl Into<String>) -> Option<&Type> {
-        self.ctx.types.get(&name.into())
+        self.compiler_ctx.types.get(&name.into())
     }
 
     pub fn type_definition_pass(
@@ -54,46 +58,27 @@ impl<'lexer, 'input, 'ctx, 'a> TypeSystem<'input, 'ctx, 'a> {
         for item in file.items.iter() {
             match item {
                 Item::TypeDecl(gadt) => {
+                    //todo map llvm_type -> gadt
+                    let llvm_type = gadt_to_type(gadt, self.llvm_ctx);
+                    // ! this is also done in the first type_definition_pass
                     for constructor in gadt.get_tags().keys() {
-                        self.ctx.add_type_constructor(constructor, gadt);
+                        self.compiler_ctx.add_type_constructor(constructor, gadt);
                     }
+                    self.compiler_ctx.add_constructor_signatures(gadt);
                 }
                 _ => continue,
             }
         }
+
         self
     }
     pub fn type_check_pass(
         &mut self,
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         file: &File,
-    ) -> &mut Self {
-        let mut typechecker = TypeChecker::new(lexer);
-        typechecker.check(file).expect("Type checking failed");
-        self
+    ) -> Result<(), TypeCheckError> {
+        TypeChecker::new(lexer, self.compiler_ctx).check(file)
     }
-}
-
-pub fn infer_types(file: &mut File) -> Result<(), Vec<()>> {
-    for item in file.items.iter_mut() {
-        match item {
-            Item::FunctionDecl(f) => {
-                for statement in &mut f.body.statements {
-                    match statement {
-                        Statement::VarDecl(var_decl) => {
-                            if let Some(_expr) = &var_decl.value {
-                                let ty = Type::Unit;
-                                var_decl.var_type = Some(ty.clone());
-                            }
-                        }
-                        _ => continue,
-                    }
-                }
-            }
-            _ => continue,
-        }
-    }
-    Err(vec![])
 }
 
 #[cfg(test)]
@@ -108,7 +93,7 @@ mod tests {
         let mut unit1 = GADT::new(unit1_name.to_owned(), vec![], HashMap::new());
         unit1.add_constructor(
             unit1_name.to_owned(),
-            GADTConstructorBuilder::new(&unit1_name)
+            GADTConstructorBuilder::new(unit1_name)
                 .unit_fields()
                 .build(),
         );
