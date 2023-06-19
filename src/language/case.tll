@@ -57,8 +57,9 @@ fn main() -> i64 {
         Cons(x, _) => x,
         _ => 0,
     };
-
+    printf("y: %lli\n", y);
     wrapper(Wrapper(Test(3, 6)));
+    t := Test(Nil, Nil);
     return unwrap_or_default(head(z)) + x + y;
 }
 

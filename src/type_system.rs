@@ -1,7 +1,8 @@
+use cfgrammar::Span;
 use inkwell::{
     context::Context,
     module::Module,
-    types::{BasicMetadataTypeEnum, BasicTypeEnum, StructType},
+    types::{BasicTypeEnum, StructType},
     AddressSpace,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
@@ -13,25 +14,6 @@ mod gadt;
 mod typecheck;
 pub use gadt::*;
 pub use typecheck::{TypeCheckError, TypeChecker};
-
-#[derive(PartialEq, Debug)]
-pub enum IntType {
-    // I8,
-    // I16,
-    // I32,
-    I64,
-    // I128,
-}
-#[derive(PartialEq, Debug)]
-pub enum FloatType {
-    // F32,
-    F64,
-}
-#[derive(PartialEq, Debug)]
-pub struct FunctionProto {
-    pub params: Vec<Type>,
-    pub return_type: Type,
-}
 
 pub struct TypeSystem<'input, 'lctx> {
     pub compiler_ctx: CompilerContext<'input, 'lctx>,
@@ -78,14 +60,21 @@ impl<'lexer, 'input, 'lctx> TypeSystem<'input, 'lctx> {
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         file: &File,
     ) -> Self {
-        //todo add proto of printf to compiler_ctx
+        self.compiler_ctx.function_types.insert(
+            "printf",
+            FunctionProto {
+                params: vec![], //todo args of printf
+                return_type: Type::Int,
+                span: Span::new(0, 0),
+            },
+        );
 
         for item in &file.items {
             match item {
                 Item::FunctionDecl(function_decl) => {
                     let fn_name = lexer.span_str(function_decl.function_sig.name);
                     if self.compiler_ctx.function_values.contains_key(fn_name) {
-                        //todo return as
+                        //todo return as error
                         panic!("function {} already exists", fn_name)
                     }
                     self.compiler_ctx
@@ -102,7 +91,7 @@ impl<'lexer, 'input, 'lctx> TypeSystem<'input, 'lctx> {
         self,
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         file: &File,
-    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), TypeCheckError> {
+    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), Vec<TypeCheckError>> {
         match TypeChecker::new(lexer, self.compiler_ctx).check(file) {
             Ok(compiler_ctx) => Ok((compiler_ctx, self.module.clone())),
             Err(err) => Err(err),
@@ -113,7 +102,7 @@ impl<'lexer, 'input, 'lctx> TypeSystem<'input, 'lctx> {
         self,
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         file: &File,
-    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), TypeCheckError> {
+    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), Vec<TypeCheckError>> {
         self.type_definition_pass(file)
             .function_definition_pass(lexer, file)
             .type_check_pass(lexer, file)

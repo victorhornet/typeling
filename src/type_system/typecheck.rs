@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::vec;
 
 use cfgrammar::Span;
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
@@ -48,7 +49,7 @@ impl<'lexer, 'input, 'lctx> TypeChecker<'lexer, 'input, 'lctx> {
         &mut self,
         pattern: &Pattern,
         expr_type: &Type,
-    ) -> Result<Type, TypeCheckError> {
+    ) -> Result<Type, Vec<TypeCheckError>> {
         let pattern_type = match pattern {
             Pattern::Wildcard => expr_type.clone(),
             Pattern::Ident(name) => {
@@ -102,16 +103,16 @@ impl<'lexer, 'input, 'lctx> TypeChecker<'lexer, 'input, 'lctx> {
         var_type: Type,
         expr_type: &Type,
         span: Span,
-    ) -> Option<Result<Option<Type>, TypeCheckError>> {
+    ) -> Option<Result<Option<Type>, Vec<TypeCheckError>>> {
         match (var_type, expr_type.clone()) {
             (Type::String(_), Type::String(_)) => {}
             (var_type, expr_type) => {
                 if var_type != expr_type {
-                    return Some(Err(TypeCheckError::VarTypeMismatch {
+                    return Some(Err(vec![TypeCheckError::VarTypeMismatch {
                         start: self.lexer.line_col(span).0,
                         expected: var_type,
                         found: expr_type,
-                    }));
+                    }]));
                 }
             }
         };
@@ -131,11 +132,11 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                     .insert(self.lexer.span_str(var_decl.name), expr_type)
             }
             (None, Some(expr)) => {
-                let expr_type = self
-                    .visit_expr(&expr)?
-                    .ok_or(TypeCheckError::CannotInferType(
-                        self.lexer.line_col(*expr.span()).0,
-                    ))?; //todo return error
+                let expr_type =
+                    self.visit_expr(&expr)?
+                        .ok_or(vec![TypeCheckError::CannotInferType(
+                            self.lexer.line_col(*expr.span()).0,
+                        )])?; //todo return error
                 self.var_stack
                     .insert(self.lexer.span_str(var_decl.name), expr_type.clone());
                 self.compiler_ctx
@@ -159,22 +160,22 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
             Expr::Var { name, span } => {
                 let (start, end) = self.lexer.line_col(span);
 
-                let var_type = self.var_stack.get(self.lexer.span_str(name)).ok_or(
+                let var_type = self.var_stack.get(self.lexer.span_str(name)).ok_or(vec![
                     TypeCheckError::UndefinedVariable(
                         start,
                         end,
                         self.lexer.span_str(name).to_string(),
                     ),
-                )?;
+                ])?;
                 if let Some(value) = self.check_var_assign(var_type, &expr_type, assign.span) {
                     return value;
                 }
                 Ok(None)
             }
             Expr::MemberAccess { expr, member, .. } => todo!("type check member access assign"),
-            _ => Err(TypeCheckError::AssignToNonVar(
+            _ => Err(vec![TypeCheckError::AssignToNonVar(
                 self.lexer.span_str(assign.span).to_owned(),
-            )),
+            )]),
         }
     }
     fn visit_expr(&mut self, expr: &Expr) -> TCResult {
@@ -187,11 +188,11 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                 let (start, end) = self.lexer.line_col(*span);
                 self.var_stack
                     .get(self.lexer.span_str(*name))
-                    .ok_or(TypeCheckError::UndefinedVariable(
+                    .ok_or(vec![TypeCheckError::UndefinedVariable(
                         start,
                         end,
                         self.lexer.span_str(*name).to_string(),
-                    ))
+                    )])
                     .map(Some)
             }
             Expr::BinOp { lhs, op, rhs, .. } => {
@@ -213,24 +214,45 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                 )?))
             }
             Expr::FunctionCall { name, args, span } => {
-                let fn_proto = self
-                    .compiler_ctx
-                    .function_types
-                    .get(self.lexer.span_str(*name))
-                    .ok_or(TypeCheckError::UndefinedFunction(
+                let fn_name = self.lexer.span_str(*name);
+                let fn_proto = self.compiler_ctx.function_types.get(fn_name).ok_or(vec![
+                    TypeCheckError::UndefinedFunction(
                         self.lexer.line_col(*span).0,
                         self.lexer.span_str(*name).to_string(),
-                    ))?;
+                    ),
+                ])?;
 
                 let return_type = fn_proto.return_type.clone();
                 let param_types = fn_proto.params.clone();
 
-                for (_, arg) in args.iter().enumerate() {
-                    let _arg_type = self.visit_expr(arg)?.expect("expr must have a type");
-                    //todo check arg type with function proto
+                if args.len() != param_types.len() && fn_name != "printf" {
+                    let (start, end) = self.lexer.line_col(*span);
+                    return Err(vec![TypeCheckError::WrongNumberOfArgs {
+                        start,
+                        end,
+                        expected: param_types.len(),
+                        found: args.len(),
+                    }]);
                 }
-
-                Ok(Some(return_type))
+                let mut errs = vec![];
+                for (arg, param) in args.iter().zip(param_types) {
+                    let arg_type = self.visit_expr(arg)?.expect("expr must have a type");
+                    let param_type = param.param_type;
+                    if arg_type != param_type {
+                        let (start, end) = self.lexer.line_col(*span);
+                        errs.push(TypeCheckError::ArgTypeMismatch {
+                            start,
+                            end,
+                            expected: param_type,
+                            found: arg_type,
+                        });
+                    }
+                }
+                if errs.is_empty() {
+                    Ok(Some(return_type))
+                } else {
+                    Err(errs)
+                }
             }
             Expr::Case {
                 span,
@@ -244,12 +266,12 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                     let pattern_type = self.get_pattern_type(pattern, &expr_type)?;
                     if pattern_type != expr_type {
                         let (start, end) = self.lexer.line_col(*span);
-                        return Err(TypeCheckError::CaseTypeMismatch {
+                        return Err(vec![TypeCheckError::CaseTypeMismatch {
                             start,
                             end,
                             expected: expr_type,
                             found: pattern_type,
-                        });
+                        }]);
                     }
                     let branch_type = match branch {
                         CaseBranchBody::Expr(expr) => {
@@ -264,11 +286,11 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                 self.var_stack.pop();
                 if branch_types.iter().any(|t| t != &branch_types[0]) {
                     let (start, end) = self.lexer.line_col(*span);
-                    return Err(TypeCheckError::CaseBranchTypeMismatch {
+                    return Err(vec![TypeCheckError::CaseBranchTypeMismatch {
                         start,
                         end,
                         branch_types,
-                    });
+                    }]);
                 }
                 Ok(Some(branch_types[0].clone()))
             }
@@ -285,7 +307,68 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                 //     let _arg_type = self.visit_expr(arg)?.expect("expr must have a type");
                 //     //todo check arg type with constructor proto
                 // }
+                //check arg type with constructor proto
+
                 let constructor_name = self.lexer.span_str(*name);
+                let (constructor_sig, _) = self
+                    .compiler_ctx
+                    .constructor_signatures
+                    .get(constructor_name)
+                    .ok_or(vec![TypeCheckError::UndefinedConstructor(
+                        self.lexer.line_col(*span).0,
+                        self.lexer.span_str(*name).to_string(),
+                    )])?
+                    .clone();
+
+                match (constructor_sig.get_fields(), args) {
+                    (GADTConstructorFields::Unit, ConstructorCallArgs::None) => {}
+                    (
+                        GADTConstructorFields::Tuple(param_types),
+                        ConstructorCallArgs::Tuple(args),
+                    ) => {
+                        if args.len() != param_types.len() {
+                            let (start, end) = self.lexer.line_col(*span);
+                            return Err(vec![TypeCheckError::WrongNumberOfArgs {
+                                start,
+                                end,
+                                expected: param_types.len(),
+                                found: args.len(),
+                            }]);
+                        }
+                        let mut errs = vec![];
+                        for (arg, param_type) in args.iter().zip(param_types) {
+                            let arg_type = self.visit_expr(arg)?.expect("expr must have a type");
+                            if arg_type != *param_type {
+                                let (start, end) = self.lexer.line_col(*arg.span());
+                                errs.push(TypeCheckError::ArgTypeMismatch {
+                                    start,
+                                    end,
+                                    expected: param_type.to_owned(),
+                                    found: arg_type,
+                                });
+                            }
+                        }
+                        if !errs.is_empty() {
+                            return Err(errs);
+                        }
+                    }
+                    (GADTConstructorFields::Struct(_, _), ConstructorCallArgs::Tuple(_)) => {
+                        unimplemented!("struct constructor type checking")
+                    }
+                    (GADTConstructorFields::Struct(_, _), ConstructorCallArgs::Struct(_)) => {
+                        unimplemented!("struct constructor type checking")
+                    }
+                    (_, _) => {
+                        return Err(vec![TypeCheckError::ConstructorArgMismatch {
+                            start: self.lexer.line_col(*span).0,
+                            end: self.lexer.line_col(*span).1,
+                            //todo add more info
+                        }]);
+                    }
+                }
+
+                // !-====================
+
                 let gadt = self
                     .compiler_ctx
                     .type_constructors
@@ -317,10 +400,10 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
             .expect("function body should have a type");
         //todo fix this
         if return_type != body_type {
-            return Err(TypeCheckError::ReturnTypeMismatch {
+            return Err(vec![TypeCheckError::ReturnTypeMismatch {
                 expected: return_type,
                 found: body_type,
-            });
+            }]);
         }
         Ok(None)
     }
@@ -355,68 +438,68 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::String(s1), Type::String(s2)) => Ok(Type::String(s1 + s2)),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Sub(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Mul(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Div(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
             (Type::Float, Type::Float) => Ok(Type::Float),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Mod(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Int),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::And(_) => match ops {
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Or(_) => match ops {
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Eq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
             (Type::String(_), Type::String(_)) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Neq(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
             (Type::String(_), Type::String(_)) => Ok(Type::Bool),
             (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Lt(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Gt(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Lte(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
         BinOp::Gte(_) => match ops {
             (Type::Int, Type::Int) => Ok(Type::Bool),
             (Type::Float, Type::Float) => Ok(Type::Bool),
-            _ => Err(TypeCheckError::BinOpTypeMismatch(ops)),
+            _ => Err(vec![TypeCheckError::BinOpTypeMismatch(ops)]),
         },
     }
 }
@@ -425,17 +508,17 @@ fn unop_type(unop: &UnOp, op: Type) -> TypeCheckResult<Type> {
     match unop {
         UnOp::Not(_) => match op {
             Type::Bool => Ok(Type::Bool),
-            t => Err(TypeCheckError::UnOpTypeMismatch(t)),
+            t => Err(vec![TypeCheckError::UnOpTypeMismatch(t)]),
         },
         UnOp::Neg(_) => match op {
             Type::Int => Ok(Type::Int),
             Type::Float => Ok(Type::Float),
-            t => Err(TypeCheckError::UnOpTypeMismatch(t)),
+            t => Err(vec![TypeCheckError::UnOpTypeMismatch(t)]),
         },
     }
 }
 
-type TypeCheckResult<T> = Result<T, TypeCheckError>;
+type TypeCheckResult<T> = Result<T, Vec<TypeCheckError>>;
 type TCResult = TypeCheckResult<Option<Type>>;
 
 #[derive(Error, Debug)]
@@ -477,6 +560,27 @@ pub enum TypeCheckError {
     },
     #[error("Cannot infer type of expression at line {}, column {}", .0 .0, .0 .1)]
     CannotInferType((usize, usize)),
+    #[error("Mismatched argument type at line {}, column {}: expected {expected:?}, found {found:?}", start.0, start.1)]
+    ArgTypeMismatch {
+        start: (usize, usize),
+        end: (usize, usize),
+        expected: Type,
+        found: Type,
+    },
+    #[error("Wrong number of arguments at line {}, column {}: expected {}, found {}", start.0, start.1, expected, found)]
+    WrongNumberOfArgs {
+        start: (usize, usize),
+        end: (usize, usize),
+        expected: usize,
+        found: usize,
+    },
+    #[error("Undefined constructor at line {}, column {}: {1}", .0 .0, .0 .1)]
+    UndefinedConstructor((usize, usize), String),
+    #[error("Invalid constructor call at line {}, column {}", start.0, start.1)]
+    ConstructorArgMismatch {
+        start: (usize, usize),
+        end: (usize, usize),
+    },
 }
 
 pub struct TypeStack<'input> {

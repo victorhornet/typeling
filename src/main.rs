@@ -91,7 +91,9 @@ fn main() -> Result<(), ExitCode> {
                         codegen.compile(&file, &args);
                     }
                     Err(type_check_errors) => {
-                        println!("{type_check_errors}");
+                        for err in type_check_errors {
+                            eprintln!("{}", err);
+                        }
                         return Ok(());
                     }
                 };
