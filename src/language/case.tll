@@ -10,13 +10,11 @@ type List = Cons i64 List | Nil
 fn main() -> i64 {
     l: List = Cons (0, Cons (1, Cons (2, Cons (3, Cons (4, Nil)))));   
     s: i64 = sum(l);
-    println(s);
+    z: str = "s: %lli\n";
+    printf(z, s);
     return s + unwrap_or_default(head(l));
 }
 
-fn println(x: i64) {
-    printf("%lli\n", x);
-}
 
 fn sum(l: List) -> i64 {
     s: i64 = 0;

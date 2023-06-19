@@ -9,7 +9,7 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
-    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
+    types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
     },
@@ -21,7 +21,7 @@ use lrpar::NonStreamingLexer;
 use crate::{
     ast::*,
     compiler::CompilerContext,
-    type_system::{gadt_to_type, GADTConstructorFields, GADT},
+    type_system::{gadt_to_type, GADTConstructorFields, IntType, GADT},
     Args,
 };
 
@@ -99,14 +99,20 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
     fn load_ptr_or_read(&self, var: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
         //TODO if shit breaks, revert these changes
-        if var.is_pointer_value()
-            && !var
-                .into_pointer_value()
-                .get_type()
-                .get_element_type()
-                .is_struct_type()
-        {
-            self.builder.build_load(var.into_pointer_value(), "load")
+
+        let i8_type = self.llvm_ctx.i8_type();
+        if var.is_pointer_value() {
+            match var.into_pointer_value().get_type().get_element_type() {
+                AnyTypeEnum::StructType(_) => var,
+                AnyTypeEnum::IntType(int_type) => {
+                    if int_type == i8_type {
+                        var
+                    } else {
+                        self.builder.build_load(var.into_pointer_value(), "load")
+                    }
+                }
+                _ => self.builder.build_load(var.into_pointer_value(), "load"),
+            }
         } else {
             var
         }
@@ -132,7 +138,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         // println!("expr_value_or_pointer: {:?}", expr_value_or_pointer);
         let val = match expr {
-            Expr::Var { .. } | Expr::MemberAccess { .. } => {
+            Expr::Var { .. } | Expr::MemberAccess { .. } | Expr::String { .. } => {
                 //todo extract this to function
                 let ptr = expr_value_or_pointer.into_pointer_value();
                 if !ptr.get_type().get_element_type().is_struct_type() {
@@ -206,7 +212,11 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                 Type::Bool => {
                                     todo!("future work: bool type")
                                 }
-                                Type::String(_) => todo!("future work: constant string type"),
+                                Type::String(_) => self
+                                    .llvm_ctx
+                                    .i8_type()
+                                    .ptr_type(AddressSpace::default())
+                                    .into(),
                                 Type::Ident(name) => self
                                     .llvm_ctx
                                     .get_struct_type(name.as_str())
@@ -906,7 +916,11 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(Type::Int) => self.llvm_ctx.i64_type().into(),
             Some(Type::Float) => todo!("future work: f64 variables"),
             Some(Type::Bool) => todo!("future work: i1 variables"),
-            Some(Type::String(_)) => todo!("future work: constant string variables"),
+            Some(Type::String(_)) => self
+                .llvm_ctx
+                .i8_type()
+                .ptr_type(AddressSpace::default())
+                .into(),
             Some(Type::Ident(name)) => self
                 .llvm_ctx
                 .get_struct_type(name)

@@ -54,7 +54,7 @@ not "NOT"
 
 i64 "INT"
 f64 "FLOAT"
-String "STRING"
+str "STRING"
 bool "BOOL"
 
 -> "RETURNS"
