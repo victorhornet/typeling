@@ -63,6 +63,9 @@ pub trait Visitor<T> {
         }
         res
     }
+    fn visit_free(&mut self, free: &Free) -> T {
+        self.visit_expr(&free.value)
+    }
     fn visit_statement(&mut self, statement: &Statement) -> T {
         match statement {
             Statement::Return(return_statement) => self.visit_return(return_statement),
@@ -73,6 +76,7 @@ pub trait Visitor<T> {
             Statement::VarDecl(var_decl) => self.visit_var_decl(var_decl),
             Statement::Assign(assign) => self.visit_assign(assign),
             Statement::Print(print) => self.visit_print(print),
+            Statement::Free(free) => self.visit_free(free),
         }
     }
     fn visit_print(&mut self, print: &Print) -> T {

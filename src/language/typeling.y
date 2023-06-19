@@ -202,6 +202,7 @@ stmt -> ParseResult<Statement>
     | print_stmt { Ok(Statement::Print($1?))}
     | var_decl { Ok(Statement::VarDecl($1?))}
     | assign_stmt { Ok(Statement::Assign($1?))}
+    | free_stmt { Ok(Statement::Free($1?))}
     ;
 
 if_stmt -> ParseResult<If>
@@ -230,6 +231,10 @@ var_decl -> ParseResult<VarDecl>
 
 assign_stmt -> ParseResult<Assign>
     : assignable_expr "ASSIGN" expr "SEMICOLON" { Ok(Assign {target: $1?, value: $3?, span: $span}) }
+    ;
+
+free_stmt -> ParseResult<Free>
+    : "FREE" "LPAREN" assignable_expr "RPAREN" "SEMICOLON" { Ok(Free {value: $3?, span: $span}) }
     ;
 
 type -> ParseResult<Type>

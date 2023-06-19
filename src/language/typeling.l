@@ -12,6 +12,7 @@ let "LET"
 construct "CONSTRUCT"
 case "CASE"
 of "OF"
+free "FREE"
 
 [0-9]+ "INT_LIT"
 [0-9][_0-9]*\.(([0-9]+[_0-9]*)|([0-9]*))f "FLOAT_LIT"

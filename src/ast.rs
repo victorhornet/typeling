@@ -132,6 +132,13 @@ pub enum Statement {
     Assign(Assign),
     Print(Print),
     Return(Return),
+    Free(Free),
+}
+
+#[derive(Debug, Clone)]
+pub struct Free {
+    pub value: Expr,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]

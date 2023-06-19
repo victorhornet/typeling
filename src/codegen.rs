@@ -10,6 +10,7 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
+    passes::{PassManager, PassManagerBuilder},
     types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
@@ -22,6 +23,7 @@ use lrpar::NonStreamingLexer;
 use crate::{
     ast::*,
     compiler::CompilerContext,
+    main,
     type_system::{ast_type_to_basic, GADTConstructorFields, GADT},
     Args,
 };
@@ -65,6 +67,31 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
 
         if args.emit_llvm {
+            self.module
+                .print_to_file(Path::new("out_unopt.ll"))
+                .unwrap();
+        }
+
+        let pass_manager_builder = PassManagerBuilder::create();
+        pass_manager_builder.set_optimization_level(OptimizationLevel::Aggressive);
+
+        let main_fn = self
+            .module
+            .get_function("main")
+            .expect("main function not defined");
+
+        let fpm = PassManager::create(&self.module);
+        pass_manager_builder.populate_function_pass_manager(&fpm);
+        fpm.run_on(&main_fn);
+        let spm = PassManager::create(());
+        pass_manager_builder.populate_module_pass_manager(&spm);
+        spm.run_on(&self.module);
+        spm.add_instruction_combining_pass();
+        spm.add_licm_pass();
+        spm.add_cfg_simplification_pass();
+        spm.add_jump_threading_pass();
+
+        if args.emit_llvm {
             self.module.print_to_file(Path::new("out.ll")).unwrap();
         }
 
@@ -81,11 +108,17 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .create_jit_execution_engine(OptimizationLevel::Aggressive)
             .unwrap();
 
-        unsafe {
-            type Main = unsafe extern "C" fn() -> i64;
-            let jit_function: JitFunction<Main> = execution_engine.get_function("main").unwrap();
-            let res = jit_function.call();
-            println!("Returned from main: {}", res)
+        // self.module.print_to_stderr();
+        match &args.output {
+            Some(s) => todo!("output to file"),
+            None => unsafe {
+                type Main = unsafe extern "C" fn() -> i64;
+                let jit_function: JitFunction<Main> = execution_engine
+                    .get_function("main")
+                    .expect("main function not defined");
+                let res = jit_function.call();
+                println!("Returned from main: {}", res)
+            },
         }
     }
 
@@ -839,7 +872,23 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Statement::If(if_) => self.visit_if(if_),
             Statement::While(while_) => self.visit_while(while_),
             Statement::Print(print) => todo!("codegen print"),
+            Statement::Free(free) => self.visit_free(free),
         }
+    }
+
+    fn visit_free(&mut self, free: &Free) -> CodeGenResult<'ctx> {
+        let variable_pointer = match self
+            .visit_expr(&free.value)?
+            .expect("expr must return a value")
+        {
+            BasicValueEnum::PointerValue(pointer) => pointer,
+            t => panic!("free must be called on a pointer, got {t}"),
+        };
+        let value = self.builder.build_load(variable_pointer, "free_target");
+        if value.is_pointer_value() {
+            self.builder.build_free(value.into_pointer_value());
+        }
+        Ok(None)
     }
 
     fn visit_assign(&mut self, assign: &Assign) -> CodeGenResult<'ctx> {
