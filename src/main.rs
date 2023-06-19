@@ -82,19 +82,19 @@ fn main() -> Result<(), ExitCode> {
                     return Ok(());
                 }
 
-                let mut compiler_ctx = CompilerContext::new();
-                let llvm_context = Context::create();
+                let compiler_ctx = CompilerContext::new();
+                let llvm_ctx = Context::create();
 
-                if let Err(type_check_errors) = TypeSystem::new(&mut compiler_ctx, &llvm_context)
-                    .type_definition_pass(&lexer, &file)
-                    .type_check_pass(&lexer, &file)
-                {
-                    println!("{type_check_errors}");
-                    return Ok(());
-                }
-
-                let mut codegen = CodeGen::new(&lexer, &llvm_context, compiler_ctx);
-                codegen.compile(&file, &args);
+                match TypeSystem::new(compiler_ctx, &llvm_ctx).run(&lexer, &file) {
+                    Ok((compiler_ctx, module)) => {
+                        let mut codegen = CodeGen::new(&lexer, &llvm_ctx, module, compiler_ctx);
+                        codegen.compile(&file, &args);
+                    }
+                    Err(type_check_errors) => {
+                        println!("{type_check_errors}");
+                        return Ok(());
+                    }
+                };
             }
         }
         None => eprintln!("Parse failed"),

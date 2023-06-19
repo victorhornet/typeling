@@ -1,9 +1,11 @@
 use inkwell::{
     context::Context,
-    types::{BasicTypeEnum, StructType},
+    module::Module,
+    types::{BasicMetadataTypeEnum, BasicTypeEnum, StructType},
     AddressSpace,
 };
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
+use lrpar::NonStreamingLexer;
 
 use crate::{ast::*, compiler::CompilerContext};
 
@@ -31,16 +33,18 @@ pub struct FunctionProto {
     pub return_type: Type,
 }
 
-pub struct TypeSystem<'input, 'ctx, 'a> {
-    pub compiler_ctx: &'a mut CompilerContext<'input, 'ctx>,
-    pub llvm_ctx: &'ctx Context,
+pub struct TypeSystem<'input, 'lctx> {
+    pub compiler_ctx: CompilerContext<'input, 'lctx>,
+    pub llvm_ctx: &'lctx Context,
+    module: Module<'lctx>,
 }
 
-impl<'lexer, 'input, 'lctx, 'cctx> TypeSystem<'input, 'lctx, 'cctx> {
-    pub fn new(ctx: &'cctx mut CompilerContext<'input, 'lctx>, llvm_ctx: &'lctx Context) -> Self {
+impl<'lexer, 'input, 'lctx> TypeSystem<'input, 'lctx> {
+    pub fn new(compiler_ctx: CompilerContext<'input, 'lctx>, llvm_ctx: &'lctx Context) -> Self {
         Self {
-            compiler_ctx: ctx,
+            compiler_ctx,
             llvm_ctx,
+            module: llvm_ctx.create_module("main"),
         }
     }
     pub fn add_type(&mut self, name: impl Into<String>, ty: Type) {
@@ -50,11 +54,7 @@ impl<'lexer, 'input, 'lctx, 'cctx> TypeSystem<'input, 'lctx, 'cctx> {
         self.compiler_ctx.types.get(&name.into())
     }
 
-    pub fn type_definition_pass(
-        &mut self,
-        _lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
-        file: &File,
-    ) -> &mut Self {
+    pub fn type_definition_pass(mut self, file: &File) -> Self {
         for item in file.items.iter() {
             match item {
                 Item::TypeDecl(gadt) => {
@@ -72,12 +72,51 @@ impl<'lexer, 'input, 'lctx, 'cctx> TypeSystem<'input, 'lctx, 'cctx> {
 
         self
     }
-    pub fn type_check_pass(
-        &mut self,
+
+    pub fn function_definition_pass(
+        mut self,
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         file: &File,
-    ) -> Result<(), TypeCheckError> {
-        TypeChecker::new(lexer, self.compiler_ctx).check(file)
+    ) -> Self {
+        //todo add proto of printf to compiler_ctx
+
+        for item in &file.items {
+            match item {
+                Item::FunctionDecl(function_decl) => {
+                    let fn_name = lexer.span_str(function_decl.function_sig.name);
+                    if self.compiler_ctx.function_values.contains_key(fn_name) {
+                        //todo return as
+                        panic!("function {} already exists", fn_name)
+                    }
+                    self.compiler_ctx
+                        .function_types
+                        .insert(fn_name, function_decl.function_sig.proto.clone());
+                }
+                _ => continue,
+            }
+        }
+        self
+    }
+
+    pub fn type_check_pass(
+        self,
+        lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
+        file: &File,
+    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), TypeCheckError> {
+        match TypeChecker::new(lexer, self.compiler_ctx).check(file) {
+            Ok(compiler_ctx) => Ok((compiler_ctx, self.module.clone())),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn run(
+        self,
+        lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
+        file: &File,
+    ) -> Result<(CompilerContext<'input, 'lctx>, Module<'lctx>), TypeCheckError> {
+        self.type_definition_pass(file)
+            .function_definition_pass(lexer, file)
+            .type_check_pass(lexer, file)
     }
 }
 

@@ -57,12 +57,10 @@ fn main() -> i64 {
         Cons(x, _) => x,
         _ => 0,
     };
+
+    wrapper(Wrapper(Test(3, 6)));
     return unwrap_or_default(head(z)) + x + y;
 }
-
-
-
-/*
 
 fn wrapper(w: Wrapper) -> i64 {
     return case w {
@@ -134,4 +132,3 @@ fn int_case(x: i64) -> i64 {
         t => t,
     };
 }
-*/

@@ -13,18 +13,18 @@ use crate::visitors::Visitor;
 
 use super::GADTConstructorFields;
 
-pub struct TypeChecker<'lexer, 'input, 'lctx, 'cctx> {
+pub struct TypeChecker<'lexer, 'input, 'lctx> {
     pub var_stack: TypeStack<'input>,
     lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
-    compiler_ctx: &'cctx mut CompilerContext<'input, 'lctx>,
+    compiler_ctx: CompilerContext<'input, 'lctx>,
     funs: HashMap<&'input str, Type>,
     errs: Vec<TypeCheckError>,
 }
 
-impl<'lexer, 'input, 'lctx, 'cctx> TypeChecker<'lexer, 'input, 'lctx, 'cctx> {
+impl<'lexer, 'input, 'lctx> TypeChecker<'lexer, 'input, 'lctx> {
     pub fn new(
         lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
-        compiler_ctx: &'cctx mut CompilerContext<'input, 'lctx>,
+        compiler_ctx: CompilerContext<'input, 'lctx>,
     ) -> Self {
         Self {
             var_stack: TypeStack::new(),
@@ -34,14 +34,14 @@ impl<'lexer, 'input, 'lctx, 'cctx> TypeChecker<'lexer, 'input, 'lctx, 'cctx> {
             errs: vec![],
         }
     }
-    pub fn check(&mut self, file: &File) -> TypeCheckResult<()> {
+    pub fn check(mut self, file: &File) -> TypeCheckResult<CompilerContext<'input, 'lctx>> {
         //todo find all type check results
         self.var_stack.push();
         let res = self.walk_file(file);
         for r in res {
             r?;
         }
-        Ok(())
+        Ok(self.compiler_ctx)
     }
 
     fn get_pattern_type(
@@ -118,7 +118,7 @@ impl<'lexer, 'input, 'lctx, 'cctx> TypeChecker<'lexer, 'input, 'lctx, 'cctx> {
         None
     }
 }
-impl<'lexer, 'input, 'lctx, 'cctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'lctx, 'cctx> {
+impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'lctx> {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) -> TCResult {
         match (var_decl.var_type.clone(), var_decl.value.clone()) {
             (Some(var_type), Some(expr)) => {
@@ -213,17 +213,24 @@ impl<'lexer, 'input, 'lctx, 'cctx> Visitor<TCResult> for TypeChecker<'lexer, 'in
                 )?))
             }
             Expr::FunctionCall { name, args, span } => {
-                let fun_type = self.funs.get(self.lexer.span_str(*name)).cloned().ok_or(
-                    TypeCheckError::UndefinedFunction(
+                let fn_proto = self
+                    .compiler_ctx
+                    .function_types
+                    .get(self.lexer.span_str(*name))
+                    .ok_or(TypeCheckError::UndefinedFunction(
                         self.lexer.line_col(*span).0,
                         self.lexer.span_str(*name).to_string(),
-                    ),
-                )?;
+                    ))?;
+
+                let return_type = fn_proto.return_type.clone();
+                let param_types = fn_proto.params.clone();
+
                 for (_, arg) in args.iter().enumerate() {
                     let _arg_type = self.visit_expr(arg)?.expect("expr must have a type");
                     //todo check arg type with function proto
                 }
-                Ok(Some(fun_type))
+
+                Ok(Some(return_type))
             }
             Expr::Case {
                 span,

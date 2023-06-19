@@ -10,7 +10,7 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
-    types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, StructType},
+    types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
     },
@@ -22,7 +22,7 @@ use lrpar::NonStreamingLexer;
 use crate::{
     ast::*,
     compiler::CompilerContext,
-    type_system::{gadt_to_type, GADTConstructorFields, IntType, GADT},
+    type_system::{ast_type_to_basic, GADTConstructorFields, GADT},
     Args,
 };
 
@@ -41,19 +41,10 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     pub fn new(
         lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
         llvm_ctx: &'ctx Context,
+        module: Module<'ctx>,
         compiler_ctx: CompilerContext<'input, 'ctx>,
     ) -> Self {
-        let module = llvm_ctx.create_module("main");
         let builder = llvm_ctx.create_builder();
-
-        //declare printf
-        let i64_type = llvm_ctx.i64_type();
-        let ptr_type = llvm_ctx.i8_type().ptr_type(AddressSpace::from(0));
-        let fn_type = i64_type.fn_type(&[BasicMetadataTypeEnum::PointerType(ptr_type)], true);
-        let printf = module.add_function("printf", fn_type, None);
-
-        let mut compiler_ctx = compiler_ctx;
-        compiler_ctx.function_values.insert("printf", printf);
 
         Self {
             lexer,
@@ -177,6 +168,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     }
 
     fn define_functions(&mut self, file: &File) {
+        //declare printf
+        let i64_type = self.llvm_ctx.i64_type();
+        let ptr_type = self.llvm_ctx.i8_type().ptr_type(AddressSpace::from(0));
+        let fn_type = i64_type.fn_type(&[BasicMetadataTypeEnum::PointerType(ptr_type)], true);
+        let printf = self.module.add_function("printf", fn_type, None);
+        self.compiler_ctx.function_values.insert("printf", printf);
+
         for item in &file.items {
             match item {
                 Item::FunctionDecl(function_decl) => {
@@ -242,8 +240,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     }
 
     fn get_basic_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
-        //todo return error
-
+        //todo return error)
         match ty {
             Type::Unit => panic!("cant convert unit type to basic type"),
             Type::Int => self.llvm_ctx.i64_type().as_basic_type_enum(),
@@ -796,10 +793,10 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             .get(fn_name)
             .expect("function must exist");
         self.current_function = Some(*fn_value);
-
         for (i, param) in function_decl.function_sig.proto.params.iter().enumerate() {
             let param_name = self.lexer.span_str(param.name);
             let param_value = fn_value.get_nth_param(i as u32).unwrap();
+
             param_value.set_name(param_name);
             self.compiler_ctx
                 .basic_value_stack

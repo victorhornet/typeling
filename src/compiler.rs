@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 
 use cfgrammar::Span;
-use inkwell::{
-    context::Context,
-    values::{BasicValueEnum, FunctionValue},
-};
+use inkwell::values::{BasicValueEnum, FunctionValue};
 use thiserror::Error;
 
 use crate::{
-    ast::Type,
+    ast::{FunctionProto, Type},
     type_system::{GADTConstructor, TypeCheckError, GADT},
 };
 
@@ -81,6 +78,7 @@ pub struct CompilerContext<'input, 'ctx> {
     pub aliases: HashMap<String, String>,
     pub basic_value_stack: Stack<'input, (BasicValueEnum<'ctx>, bool)>,
     pub function_values: HashMap<&'input str, FunctionValue<'ctx>>,
+    pub function_types: HashMap<&'input str, FunctionProto>,
     pub inferred_types: HashMap<Span, Type>,
 }
 
@@ -92,6 +90,7 @@ impl<'input, 'ctx> CompilerContext<'input, 'ctx> {
             aliases: HashMap::new(),
             basic_value_stack: Stack::new(),
             function_values: HashMap::new(),
+            function_types: HashMap::new(),
             constructor_signatures: HashMap::new(),
             inferred_types: HashMap::new(),
         }
