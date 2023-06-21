@@ -106,7 +106,14 @@ anonymous_type_constructor_param_list -> ParseResult<Vec<Type>>
 
 named_type_constructor_param_list -> ParseResult<Vec<(&'input str, Type)>>
     : named_field { Ok(vec![$1?]) }
-    | named_type_constructor_param_list named_field { flatten($1, $2) }
+    | named_type_constructor_param_list named_field { 
+        let fields = $1?;
+        let (field_name, ty) = $2?;
+        if fields.iter().any(|(name, _)| name.to_owned() == field_name.to_owned()) {
+            return Err(Box::new(ParseError::DuplicateFieldName(field_name.to_string())));
+        }
+        flatten(Ok(fields), Ok((field_name, ty)))
+    }
     ;
 
 shorthand_def -> ParseResult<HashMap<String, GADTConstructor>>
@@ -386,17 +393,9 @@ fn flatten<T>(lhs: ParseResult<Vec<T>>, rhs: ParseResult<T>) -> ParseResult<Vec<
     Ok(flt)
 }
 
-fn init_map<T>(key: String, value: T) -> ParseResult<HashMap<String, T>>
-{
-    let mut map = HashMap::new();
-    map.insert(key, value);
-    Ok(map)
-}
-
 #[derive(Debug)]
 pub enum ParseError {
     DuplicateTypeConstructor(String),
-    DuplicateTypeConstructorParam(String),
     DuplicateFieldName(String),
 }
 
@@ -405,9 +404,6 @@ impl Display for ParseError {
         match self {
             ParseError::DuplicateTypeConstructor(name) => {
                 write!(f, "Duplicate type constructor: {}", name)
-            }
-            ParseError::DuplicateTypeConstructorParam(name) => {
-                write!(f, "Duplicate type constructor param: {}", name)
             }
             ParseError::DuplicateFieldName(name) => {
                 write!(f, "Duplicate field name: {}", name)
@@ -420,7 +416,6 @@ impl Error for ParseError {
     fn description(&self) -> &str {
         match self {
             ParseError::DuplicateTypeConstructor(_) => "Duplicate type constructor",
-            ParseError::DuplicateTypeConstructorParam(_) => "Duplicate type constructor param",
             ParseError::DuplicateFieldName(_) => "Duplicate field name",
         }
     }
