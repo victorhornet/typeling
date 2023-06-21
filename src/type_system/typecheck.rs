@@ -19,7 +19,6 @@ pub struct TypeChecker<'lexer, 'input, 'lctx> {
     lexer: &'lexer LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
     compiler_ctx: CompilerContext<'input, 'lctx>,
     funs: HashMap<&'input str, Type>,
-    errs: Vec<TypeCheckError>,
 }
 
 impl<'lexer, 'input, 'lctx> TypeChecker<'lexer, 'input, 'lctx> {
@@ -32,7 +31,6 @@ impl<'lexer, 'input, 'lctx> TypeChecker<'lexer, 'input, 'lctx> {
             funs: HashMap::new(),
             lexer,
             compiler_ctx,
-            errs: vec![],
         }
     }
     pub fn check(mut self, file: &File) -> TypeCheckResult<CompilerContext<'input, 'lctx>> {
@@ -172,7 +170,7 @@ impl<'lexer, 'input, 'lctx> Visitor<TCResult> for TypeChecker<'lexer, 'input, 'l
                 }
                 Ok(None)
             }
-            Expr::MemberAccess { expr, member, .. } => todo!("type check member access assign"),
+            Expr::MemberAccess { .. } => todo!("type check member access assign"),
             _ => Err(vec![TypeCheckError::AssignToNonVar(
                 self.lexer.span_str(assign.span).to_owned(),
             )]),
@@ -621,14 +619,12 @@ impl<'input> Default for TypeStack<'input> {
 
 pub struct TypeStackFrame<'input> {
     vars: HashMap<&'input str, Type>,
-    funs: HashMap<&'input str, Type>,
 }
 
 impl<'input> TypeStackFrame<'input> {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
-            funs: HashMap::new(),
         }
     }
 }

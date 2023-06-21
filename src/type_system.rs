@@ -40,9 +40,7 @@ impl<'lexer, 'input, 'lctx> TypeSystem<'input, 'lctx> {
         for item in file.items.iter() {
             match item {
                 Item::TypeDecl(gadt) => {
-                    //todo map llvm_type -> gadt
-                    let llvm_type = gadt_to_type(gadt, self.llvm_ctx);
-                    // ! this is also done in the first type_definition_pass
+                    let _llvm_type = gadt_to_type(gadt, self.llvm_ctx);
                     for constructor in gadt.get_tags().keys() {
                         self.compiler_ctx.add_type_constructor(constructor, gadt);
                     }

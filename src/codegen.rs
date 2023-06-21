@@ -8,7 +8,6 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context,
-    execution_engine::JitFunction,
     module::Module,
     passes::{PassManager, PassManagerBuilder},
     types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
@@ -23,8 +22,7 @@ use lrpar::NonStreamingLexer;
 use crate::{
     ast::*,
     compiler::CompilerContext,
-    main,
-    type_system::{ast_type_to_basic, GADTConstructorFields, GADT},
+    type_system::{GADTConstructorFields, GADT},
     Args,
 };
 
@@ -72,53 +70,51 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .unwrap();
         }
 
-        let pass_manager_builder = PassManagerBuilder::create();
-        pass_manager_builder.set_optimization_level(OptimizationLevel::Aggressive);
+        let main_fn = self.module.get_function("main");
 
-        let main_fn = self
-            .module
-            .get_function("main")
-            .expect("main function not defined");
+        match main_fn {
+            None => eprintln!("Compilation error: main function not found"),
+            Some(_) => {
+                let pass_manager_builder = PassManagerBuilder::create();
+                pass_manager_builder.set_optimization_level(OptimizationLevel::Aggressive);
 
-        let fpm = PassManager::create(&self.module);
-        pass_manager_builder.populate_function_pass_manager(&fpm);
-        fpm.run_on(&main_fn);
-        let spm = PassManager::create(());
-        pass_manager_builder.populate_module_pass_manager(&spm);
-        spm.run_on(&self.module);
-        spm.add_instruction_combining_pass();
-        spm.add_licm_pass();
-        spm.add_cfg_simplification_pass();
-        spm.add_jump_threading_pass();
+                let fpm = PassManager::create(());
+                pass_manager_builder.populate_module_pass_manager(&fpm);
+                fpm.run_on(&self.module);
+                // spm.add_instruction_combining_pass();
+                // spm.add_licm_pass();
+                // spm.add_cfg_simplification_pass();
+                // spm.add_jump_threading_pass();
 
-        if args.emit_llvm {
-            self.module.print_to_file(Path::new("out.ll")).unwrap();
-        }
+                if args.emit_llvm {
+                    self.module.print_to_file(Path::new("out.ll")).unwrap();
+                }
 
-        if args.show_ir {
-            self.module.print_to_stderr();
-        }
+                if args.show_ir {
+                    self.module.print_to_stderr();
+                }
 
-        if args.no_run {
-            return;
-        }
+                if args.no_run {
+                    return;
+                }
 
-        let execution_engine = self
-            .module
-            .create_jit_execution_engine(OptimizationLevel::Aggressive)
-            .unwrap();
+                let execution_engine = self
+                    .module
+                    .create_jit_execution_engine(OptimizationLevel::Aggressive)
+                    .unwrap();
 
-        // self.module.print_to_stderr();
-        match &args.output {
-            Some(s) => todo!("output to file"),
-            None => unsafe {
-                type Main = unsafe extern "C" fn() -> i64;
-                let jit_function: JitFunction<Main> = execution_engine
-                    .get_function("main")
-                    .expect("main function not defined");
-                let res = jit_function.call();
-                println!("Returned from main: {}", res)
-            },
+                // self.module.print_to_stderr();
+                match &args.output {
+                    Some(s) => todo!("output to {s}"),
+                    None => unsafe {
+                        type Main = unsafe extern "C" fn() -> i64;
+                        let jit_function = execution_engine.get_function::<Main>("main").unwrap();
+
+                        let res = jit_function.call();
+                        println!("Returned from main: {}", res)
+                    },
+                }
+            }
         }
     }
 
@@ -304,7 +300,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .builder
             .build_struct_gep(inner_ptr, i as u32, "param")
             .expect("type check should have caught this");
-        let elem_type = ptr.get_type().get_element_type();
         let param = match param {
             e @ Expr::Var { .. } | e @ Expr::MemberAccess { .. } => {
                 let res = self
@@ -329,7 +324,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     fn get_member_index(&mut self, member: &MemberAccessType) -> u32 {
         let index = match member {
             MemberAccessType::Field(span) => {
-                let field_name = self.lexer.span_str(*span);
+                let _field_name = self.lexer.span_str(*span);
                 todo!("member access by field")
             }
             MemberAccessType::Index(span) => self
@@ -494,20 +489,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         }
 
         Ok(Some(result_value))
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn build_type_ident_branch(
-        &mut self,
-        span: &Span,
-        mut pattern_blocks: HashMap<&'input str, BasicBlock<'ctx>>,
-        args: &TypePatternArgs,
-        inner_ptr: PointerValue<'ctx>,
-        branch: &CaseBranchBody,
-        case_result_ptr: PointerValue<'_>,
-        exit_block: BasicBlock<'_>,
-    ) -> Result<HashMap<&'input str, BasicBlock<'ctx>>, Box<dyn Error>> {
-        Ok(pattern_blocks)
     }
 
     fn patmatch_args(
@@ -787,19 +768,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.build_unconditional_branch(exit_block);
         self.builder.position_at_end(exit_block);
         Ok(case_result_ptr)
-    }
-
-    fn build_case_on(
-        &mut self,
-        expr_value: BasicValueEnum<'ctx>,
-        patterns: &Vec<(Pattern, CaseBranchBody)>,
-    ) -> Result<Option<BasicValueEnum<'_>>, Box<dyn Error>> {
-        let res = match expr_value {
-            BasicValueEnum::IntValue(value) => self.build_int_case(patterns, value),
-            BasicValueEnum::PointerValue(value) => self.build_adt_case(patterns, value),
-            t => panic!("unsupported case expr type: {t}"),
-        };
-        res
     }
 }
 

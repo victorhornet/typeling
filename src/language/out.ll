@@ -20,8 +20,14 @@ declare noundef i64 @printf(i8* nocapture noundef readonly, ...) local_unnamed_a
 ; Function Attrs: nounwind
 define i64 @main() local_unnamed_addr #1 {
 entry:
-  %call = tail call i64 @list_demo()
-  %call1 = tail call i64 @bintree_demo()
+  %call = tail call i64 @benchmark()
+  ret i64 0
+}
+
+; Function Attrs: nounwind
+define i64 @benchmark() local_unnamed_addr #1 {
+entry:
+  %call = tail call i64 @bintree_demo()
   ret i64 0
 }
 
@@ -31,21 +37,21 @@ entry:
   %malloccall = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i64 0, i32 0
-  store i64 1, i64* %tag_ptr, align 4
+  store i64 0, i64* %tag_ptr, align 4
   %param = getelementptr inbounds %List, %List* %gadt, i64 0, i32 1, i32 0
   store i64 2, i64* %param, align 4
   %param1 = getelementptr inbounds %List, %List* %gadt, i64 0, i32 1, i32 1
   %malloccall2 = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt3 = bitcast i8* %malloccall2 to %List*
   %tag_ptr4 = getelementptr inbounds %List, %List* %gadt3, i64 0, i32 0
-  store i64 1, i64* %tag_ptr4, align 4
+  store i64 0, i64* %tag_ptr4, align 4
   %param6 = getelementptr inbounds %List, %List* %gadt3, i64 0, i32 1, i32 0
   store i64 3, i64* %param6, align 4
   %param7 = getelementptr inbounds %List, %List* %gadt3, i64 0, i32 1, i32 1
   %malloccall8 = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt9 = bitcast i8* %malloccall8 to %List*
   %tag_ptr10 = getelementptr inbounds %List, %List* %gadt9, i64 0, i32 0
-  store i64 0, i64* %tag_ptr10, align 4
+  store i64 1, i64* %tag_ptr10, align 4
   %0 = bitcast %List** %param7 to i8**
   store i8* %malloccall8, i8** %0, align 8
   %1 = bitcast %List** %param1 to i8**
@@ -60,7 +66,7 @@ entry:
   %malloccall25 = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt26 = bitcast i8* %malloccall25 to %List*
   %tag_ptr27 = getelementptr inbounds %List, %List* %gadt26, i64 0, i32 0
-  store i64 1, i64* %tag_ptr27, align 4
+  store i64 0, i64* %tag_ptr27, align 4
   %param29 = getelementptr inbounds %List, %List* %gadt26, i64 0, i32 1, i32 0
   store i64 1, i64* %param29, align 4
   %param30 = getelementptr inbounds %List, %List* %gadt26, i64 0, i32 1, i32 1
@@ -81,7 +87,7 @@ define %Option* @get(i64 %i, %List* nocapture readonly %l) local_unnamed_addr #0
 entry:
   %tag_ptr21 = getelementptr inbounds %List, %List* %l, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr21, align 4
-  %cond = icmp eq i64 %tag, 1
+  %cond = icmp eq i64 %tag, 0
   br i1 %cond, label %Node_block, label %case_else
 
 after_case:                                       ; preds = %value_branch, %case_else8, %case_else
@@ -93,7 +99,7 @@ case_else:                                        ; preds = %entry
   %malloccall15 = tail call dereferenceable_or_null(16) i8* @malloc(i32 16)
   %gadt16 = bitcast i8* %malloccall15 to %Option*
   %tag_ptr17 = getelementptr inbounds %Option, %Option* %gadt16, i64 0, i32 0
-  store i64 1, i64* %tag_ptr17, align 4
+  store i64 0, i64* %tag_ptr17, align 4
   %ptr_value20 = ptrtoint i8* %malloccall15 to i64
   br label %after_case
 
@@ -114,7 +120,7 @@ value_branch:                                     ; preds = %Node_block
   %malloccall = tail call dereferenceable_or_null(16) i8* @malloc(i32 16)
   %gadt = bitcast i8* %malloccall to %Option*
   %tag_ptr = getelementptr inbounds %Option, %Option* %gadt, i64 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %param9 = getelementptr inbounds %Option, %Option* %gadt, i64 0, i32 1, i32 0
   %load10 = load i64, i64* %param, align 4
   store i64 %load10, i64* %param9, align 4
@@ -128,7 +134,7 @@ entry:
   %malloccall = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i64 0, i32 0
-  store i64 1, i64* %tag_ptr, align 4
+  store i64 0, i64* %tag_ptr, align 4
   %param = getelementptr inbounds %List, %List* %gadt, i64 0, i32 1, i32 0
   store i64 %x, i64* %param, align 4
   %param3 = getelementptr inbounds %List, %List* %gadt, i64 0, i32 1, i32 1
@@ -141,7 +147,7 @@ define %List* @pop(%List* nocapture readonly %xs) local_unnamed_addr #2 {
 entry:
   %tag_ptr7 = getelementptr inbounds %List, %List* %xs, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr7, align 4
-  %cond = icmp eq i64 %tag, 1
+  %cond = icmp eq i64 %tag, 0
   br i1 %cond, label %Node_block, label %case_else
 
 after_case:                                       ; preds = %case_else, %Node_block
@@ -153,7 +159,7 @@ case_else:                                        ; preds = %entry
   %malloccall = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i64 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %ptr_value6 = ptrtoint i8* %malloccall to i64
   br label %after_case
 
@@ -169,7 +175,7 @@ define noalias %List* @push(i64 %x, %List* nocapture readonly %xs) local_unnamed
 entry:
   %tag_ptr23 = getelementptr inbounds %List, %List* %xs, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr23, align 4
-  %cond = icmp eq i64 %tag, 1
+  %cond = icmp eq i64 %tag, 0
   br i1 %cond, label %Node_block, label %case_else
 
 after_case:                                       ; preds = %case_else, %Node_block
@@ -180,14 +186,14 @@ case_else:                                        ; preds = %entry
   %malloccall10 = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt11 = bitcast i8* %malloccall10 to %List*
   %tag_ptr12 = getelementptr inbounds %List, %List* %gadt11, i64 0, i32 0
-  store i64 1, i64* %tag_ptr12, align 4
+  store i64 0, i64* %tag_ptr12, align 4
   %param14 = getelementptr inbounds %List, %List* %gadt11, i64 0, i32 1, i32 0
   store i64 %x, i64* %param14, align 4
   %param16 = getelementptr inbounds %List, %List* %gadt11, i64 0, i32 1, i32 1
   %malloccall17 = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt18 = bitcast i8* %malloccall17 to %List*
   %tag_ptr19 = getelementptr inbounds %List, %List* %gadt18, i64 0, i32 0
-  store i64 0, i64* %tag_ptr19, align 4
+  store i64 1, i64* %tag_ptr19, align 4
   %0 = bitcast %List** %param16 to i8**
   store i8* %malloccall17, i8** %0, align 8
   br label %after_case
@@ -198,7 +204,7 @@ Node_block:                                       ; preds = %entry
   %malloccall = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i64 0, i32 0
-  store i64 1, i64* %tag_ptr, align 4
+  store i64 0, i64* %tag_ptr, align 4
   %param5 = getelementptr inbounds %List, %List* %gadt, i64 0, i32 1, i32 0
   %load6 = load i64, i64* %param, align 4
   store i64 %load6, i64* %param5, align 4
@@ -214,7 +220,7 @@ define i64 @is_empty(%List* nocapture readonly %l) local_unnamed_addr #3 {
 entry:
   %tag_ptr = getelementptr inbounds %List, %List* %l, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr, align 4
-  %cond = icmp eq i64 %tag, 0
+  %cond = icmp eq i64 %tag, 1
   %. = sext i1 %cond to i64
   ret i64 %.
 }
@@ -224,7 +230,7 @@ define noalias %Option* @head(%List* nocapture readonly %l) local_unnamed_addr #
 entry:
   %tag_ptr12 = getelementptr inbounds %List, %List* %l, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr12, align 4
-  %cond = icmp eq i64 %tag, 1
+  %cond = icmp eq i64 %tag, 0
   br i1 %cond, label %Node_block, label %case_else
 
 after_case:                                       ; preds = %case_else, %Node_block
@@ -235,7 +241,7 @@ case_else:                                        ; preds = %entry
   %malloccall6 = tail call dereferenceable_or_null(16) i8* @malloc(i32 16)
   %gadt7 = bitcast i8* %malloccall6 to %Option*
   %tag_ptr8 = getelementptr inbounds %Option, %Option* %gadt7, i64 0, i32 0
-  store i64 1, i64* %tag_ptr8, align 4
+  store i64 0, i64* %tag_ptr8, align 4
   br label %after_case
 
 Node_block:                                       ; preds = %entry
@@ -243,7 +249,7 @@ Node_block:                                       ; preds = %entry
   %malloccall = tail call dereferenceable_or_null(16) i8* @malloc(i32 16)
   %gadt = bitcast i8* %malloccall to %Option*
   %tag_ptr = getelementptr inbounds %Option, %Option* %gadt, i64 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %param4 = getelementptr inbounds %Option, %Option* %gadt, i64 0, i32 1, i32 0
   %load5 = load i64, i64* %param, align 4
   store i64 %load5, i64* %param4, align 4
@@ -255,7 +261,7 @@ define %List* @tail(%List* nocapture readonly %l) local_unnamed_addr #2 {
 entry:
   %tag_ptr7 = getelementptr inbounds %List, %List* %l, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr7, align 4
-  %cond = icmp eq i64 %tag, 1
+  %cond = icmp eq i64 %tag, 0
   br i1 %cond, label %Node_block, label %case_else
 
 after_case:                                       ; preds = %case_else, %Node_block
@@ -267,7 +273,7 @@ case_else:                                        ; preds = %entry
   %malloccall = tail call dereferenceable_or_null(24) i8* @malloc(i32 24)
   %gadt = bitcast i8* %malloccall to %List*
   %tag_ptr = getelementptr inbounds %List, %List* %gadt, i64 0, i32 0
-  store i64 0, i64* %tag_ptr, align 4
+  store i64 1, i64* %tag_ptr, align 4
   %ptr_value6 = ptrtoint i8* %malloccall to i64
   br label %after_case
 
@@ -283,7 +289,7 @@ define i64 @unwrap_or_default(%Option* nocapture readonly %x) local_unnamed_addr
 entry:
   %tag_ptr = getelementptr inbounds %Option, %Option* %x, i64 0, i32 0
   %tag = load i64, i64* %tag_ptr, align 4
-  %cond = icmp eq i64 %tag, 0
+  %cond = icmp eq i64 %tag, 1
   br i1 %cond, label %Some_block, label %after_case
 
 after_case:                                       ; preds = %entry, %Some_block
