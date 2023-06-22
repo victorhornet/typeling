@@ -109,7 +109,7 @@ named_type_constructor_param_list -> ParseResult<Vec<(&'input str, Type)>>
     | named_type_constructor_param_list named_field { 
         let fields = $1?;
         let (field_name, ty) = $2?;
-        if fields.iter().any(|(name, _)| name.to_owned() == field_name.to_owned()) {
+        if fields.iter().any(|(name, _)| *name == field_name) {
             return Err(Box::new(ParseError::DuplicateFieldName(field_name.to_string())));
         }
         flatten(Ok(fields), Ok((field_name, ty)))

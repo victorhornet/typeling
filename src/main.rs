@@ -13,8 +13,8 @@ use lrpar::{lrpar_mod, Lexeme, Lexer, NonStreamingLexer};
 use std::{env, fs, path::Path, process::ExitCode};
 use type_system::TypeSystem;
 
-lrlex_mod!("language/typeling.l");
-lrpar_mod!("language/typeling.y");
+lrlex_mod!("language/grammar/typeling.l");
+lrpar_mod!("language/grammar/typeling.y");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

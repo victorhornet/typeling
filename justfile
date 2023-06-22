@@ -9,3 +9,4 @@ run SRC:
 
 test:
     cargo test -q -- --nocapture --color always
+
