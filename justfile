@@ -10,3 +10,8 @@ run SRC:
 test:
     cargo test -q -- --nocapture --color always
 
+dockerbuild:
+    docker build . -t victorhornet/typeling   
+
+dockerrun:
+    docker run -it victorhornet/typeling sh
