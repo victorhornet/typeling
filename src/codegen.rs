@@ -105,15 +105,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     .unwrap();
 
                 // self.module.print_to_stderr();
-                match &args.output {
-                    Some(s) => todo!("output to {s}"),
-                    None => unsafe {
-                        type Main = unsafe extern "C" fn() -> i64;
-                        let jit_function = execution_engine.get_function::<Main>("main").unwrap();
 
-                        let res = jit_function.call();
-                        println!("Returned from main: {}", res)
-                    },
+                unsafe {
+                    type Main = unsafe extern "C" fn() -> i64;
+                    let jit_function = execution_engine.get_function::<Main>("main").unwrap();
+
+                    let res = jit_function.call();
+                    println!("Returned from main: {}", res)
                 }
             }
         }

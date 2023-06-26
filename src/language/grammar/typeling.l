@@ -8,10 +8,10 @@ while "WHILE"
 print "PRINT"
 type "TYPE"
 alias "ALIAS"
-let "LET"
-construct "CONSTRUCT"
+
+
 case "CASE"
-of "OF"
+
 free "FREE"
 
 [0-9]+ "INT_LIT"
@@ -48,8 +48,7 @@ not "NOT"
 <INITIAL>\{ "LBRACE"
 <INITIAL>\} "RBRACE"
 
-\[ "LBRACKET"
-\] "RBRACKET"
+
 \, "COMMA"
 \. "DOT"
 

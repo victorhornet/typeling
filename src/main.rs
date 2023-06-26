@@ -19,33 +19,47 @@ lrpar_mod!("language/grammar/typeling.y");
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
+    #[arg(help = "Typeling input file to run")]
     input: String,
 
-    #[arg(short, default_value = "false")]
-    lex: bool,
+    #[arg(
+        short = 'l',
+        long,
+        default_value = "false",
+        help = "Display lexer tokens"
+    )]
+    emit_lex: bool,
 
-    #[arg(short, default_value = "false")]
-    yacc: bool,
+    #[arg(
+        short = 'y',
+        long,
+        default_value = "false",
+        help = "Display parse tree"
+    )]
+    emit_yacc: bool,
 
-    #[arg(short, long, default_value = "false")]
-    no_codegen: bool,
-
-    #[arg(long, default_value = "false")]
-    show_ir: bool,
-
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value = "false", help = "Output LLVM IR to ./out.ll")]
     emit_llvm: bool,
 
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value = "false", help = "Show LLVM IR")]
+    show_ir: bool,
+
+    #[arg(
+        short,
+        long,
+        default_value = "false",
+        help = "Stop before code generation phase"
+    )]
+    no_codegen: bool,
+
+    #[arg(long, default_value = "false", help = "Don't run LLVM module verifier")]
     no_verify: bool,
 
-    #[arg(long, default_value = "false")]
-    no_run: bool,
-
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value = "false", help = "Don't run the optimizer")]
     no_opt: bool,
 
-    output: Option<String>,
+    #[arg(long, default_value = "false", help = "Don't run the JIT compiler")]
+    no_run: bool,
 }
 
 fn main() -> Result<(), ExitCode> {
@@ -53,7 +67,7 @@ fn main() -> Result<(), ExitCode> {
     let args = Args::parse();
     let input = fs::read_to_string(Path::new(&args.input)).expect("Failed to read input");
     let lexer = lexerdef.lexer(&input);
-    if args.lex {
+    if args.emit_lex {
         for r in lexer.iter() {
             match r {
                 Ok(l) => {
@@ -77,7 +91,7 @@ fn main() -> Result<(), ExitCode> {
     match res {
         Some(r) => {
             if let Ok(file) = r {
-                if args.yacc {
+                if args.emit_yacc {
                     println!("{file:#?}");
                 }
 
