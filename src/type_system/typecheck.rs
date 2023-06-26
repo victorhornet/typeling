@@ -505,7 +505,7 @@ fn binop_type(binop: &BinOp, ops: (Type, Type)) -> TypeCheckResult<Type> {
 fn unop_type(unop: &UnOp, op: Type) -> TypeCheckResult<Type> {
     match unop {
         UnOp::Not(_) => match op {
-            Type::Bool => Ok(Type::Int),
+            Type::Int => Ok(Type::Int),
             t => Err(vec![TypeCheckError::UnOpTypeMismatch(t)]),
         },
         UnOp::Neg(_) => match op {
