@@ -17,7 +17,7 @@ lrlex_mod!("language/grammar/typeling.l");
 lrpar_mod!("language/grammar/typeling.y");
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about = "Typeling JIT compiler.", long_about = None)]
 pub struct Args {
     #[arg(help = "Typeling input file to run")]
     input: String,

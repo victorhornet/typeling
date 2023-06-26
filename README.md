@@ -27,6 +27,16 @@ Optionally, if the build fails because the LLVM installation is not found, the `
 LLVM_SYS_140_PREFIX=/opt/homebrew/opt/llvm@14 cargo install --path .
 ```
 
+### Usage
+
+Once installed, the compiler can be used with the `typeling` command:
+
+```bash
+typeling [OPTIONS] <INPUT_FILE>
+```
+
+For more information about the available options, run `typeling --help`.
+
 ## Features (WIP)
 
 ### Comments
