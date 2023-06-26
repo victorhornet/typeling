@@ -363,7 +363,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         for (pattern, _) in patterns.iter() {
             if let Pattern::TypeIdent(span, _) = pattern {
                 let patname = self.lexer.span_str(*span);
-                //todo check if pattern matches existing constructor of type
                 if !self.compiler_ctx.type_constructors.contains_key(patname) {
                     panic!("type constructor {} not found", patname);
                 }
@@ -392,6 +391,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             match pattern {
                 Pattern::TypeIdent(span, args) => {
                     let patname = self.lexer.span_str(*span);
+
                     let block = pattern_blocks
                         .get(patname)
                         .expect("block must exist because of previous pass");
@@ -400,7 +400,26 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         self.current_function.unwrap(),
                         block.get_name().to_str().unwrap(),
                     );
-                    self.patmatch_args(args, inner_ptr, fail_block)?;
+
+                    //todo bitcast inner_ptr to constructor type
+                    let constructor_llvm_name = self
+                        .compiler_ctx
+                        .constructor_signatures
+                        .get(patname)
+                        .map(|(c, _)| c.llvm_name())
+                        .unwrap();
+                    let constructor_ptr_type = self
+                        .llvm_ctx
+                        .get_struct_type(&constructor_llvm_name)
+                        .unwrap_or_else(|| panic!("llvm type {} not found", constructor_llvm_name))
+                        .ptr_type(AddressSpace::default());
+
+                    let bitcast_inner_ptr = self
+                        .builder
+                        .build_bitcast(inner_ptr, constructor_ptr_type, "bitcast_inner_ptr")
+                        .into_pointer_value();
+
+                    self.patmatch_args(args, bitcast_inner_ptr, fail_block)?;
                     let result_value = match branch {
                         CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
                         CaseBranchBody::Block(block) => self.visit_block(block)?,
