@@ -11,10 +11,16 @@ type List = Node i64 List | Empty
 type BinTree = BNode i64 BinTree BinTree | BEmpty
 
 
+type Either = Left i64 i64 | Right Tuple
+
 fn main() -> i64 {
-    //list_demo();
-    //bintree_demo();
-    benchmark();
+    l := Left (1,2);
+    r := Right (Tuple(3,4));
+    case l {
+        Left (x, y) => printf("left %lli %lli\n", x, y),
+        Right(Tuple(x, y)) => printf("right %lli %lli\n", x, y),
+        _ => printf("unreachable\n"),
+    };
     return 0;
 }
 

@@ -342,7 +342,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         patterns: &[(Pattern, CaseBranchBody)],
         value: PointerValue<'ctx>,
     ) -> CodeGenResult<'ctx> {
-        //todo detect return type
         let case_result_ptr = self
             .builder
             .build_alloca(self.llvm_ctx.i64_type(), "case_result_ptr");
@@ -377,6 +376,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 pattern_blocks.insert(patname, block);
             }
         }
+
+        let has_default_case = patterns
+            .iter()
+            .any(|(p, _)| matches!(p, Pattern::Ident(_) | Pattern::Wildcard));
+
+        if !has_default_case {
+            panic!("no default pattern matching case for {}", value);
+        }
+
         let cases = pattern_blocks
             .iter()
             .map(|(tag, block)| {
@@ -402,7 +410,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         block.get_name().to_str().unwrap(),
                     );
 
-                    //todo bitcast inner_ptr to constructor type
                     let constructor_llvm_name = self
                         .compiler_ctx
                         .constructor_signatures
@@ -625,6 +632,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .llvm_ctx
             .append_basic_block(self.current_function.unwrap(), "case_else");
         let current_block = self.builder.get_insert_block().unwrap();
+
+        let has_default_case = patterns
+            .iter()
+            .any(|(p, _)| matches!(p, Pattern::Ident(_) | Pattern::Wildcard));
+
+        if !has_default_case {
+            panic!("no default pattern matching case for {}", value);
+        }
         let mut cases = vec![];
         let mut return_type = None;
         for (pattern, branch) in patterns.iter() {
