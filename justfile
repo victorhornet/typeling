@@ -13,5 +13,5 @@ test:
 dockerbuild:
     docker build . -t victorhornet/typeling   
 
-dockerrun:
-    docker run -it victorhornet/typeling sh
+dockerrun SRC:
+    docker run --rm -v $(pwd):$(pwd) -w $(pwd) victorhornet/typeling {{SRC}}

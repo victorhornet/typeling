@@ -8,7 +8,7 @@ use inkwell::{
 use lrlex::{DefaultLexerTypes, LRNonStreamingLexer};
 use lrpar::NonStreamingLexer;
 
-use crate::{ast::*, compiler::CompilerContext};
+use crate::{ast::*, codegen::PTR_ADDRESS_SPACE, compiler::CompilerContext};
 
 mod gadt;
 mod typecheck;
@@ -172,7 +172,7 @@ pub fn ast_type_to_basic<'ctx>(context: &'ctx Context) -> impl Fn(&Type) -> Basi
         Type::Ident(name) => context
             .get_struct_type(name)
             .unwrap()
-            .ptr_type(AddressSpace::default())
+            .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
             .into(),
         _ => panic!("Not implemented"),
     }

@@ -27,6 +27,26 @@ Optionally, if the build fails because the LLVM installation is not found, the `
 LLVM_SYS_140_PREFIX=/opt/homebrew/opt/llvm@14 cargo install --path .
 ```
 
+#### Running with Docker
+
+Alternatively, a Docker image of the compiler is available on [Docker Hub](https://hub.docker.com/r/victorhornet/typeling).
+
+```bash
+docker pull victorhornet/typeling
+```
+
+or can be built from the `Dockerfile` in the root directory:
+
+```bash
+docker build -t victorhornet/typeling .
+```
+
+Example alias for the run command:
+
+```bash
+alias typeling="docker run --rm -v $(pwd):$(pwd) -w $(pwd) victorhornet/typeling"
+```
+
 ### Usage
 
 Once installed, the compiler can be used with the `typeling` command:

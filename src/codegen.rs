@@ -28,6 +28,8 @@ use crate::{
 
 use crate::visitors::Visitor;
 
+pub const PTR_ADDRESS_SPACE: u16 = 0;
+
 pub struct CodeGen<'input, 'lexer, 'ctx> {
     pub lexer: &'input LRNonStreamingLexer<'lexer, 'input, DefaultLexerTypes>,
     pub llvm_ctx: &'ctx Context,
@@ -107,19 +109,17 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 // self.module.print_to_stderr();
 
                 unsafe {
-                    type Main = unsafe extern "C" fn() -> i64;
+                    type Main = unsafe extern "C" fn() -> ();
                     let jit_function = execution_engine.get_function::<Main>("main").unwrap();
 
-                    let res = jit_function.call();
-                    println!("Returned from main: {}", res)
+                    jit_function.call();
+                    // println!("Returned from main: {}", res)
                 }
             }
         }
     }
 
     fn load_ptr_or_read(&self, var: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
-        //TODO if shit breaks, revert these changes
-
         let i8_type = self.llvm_ctx.i8_type();
         if var.is_pointer_value() {
             match var.into_pointer_value().get_type().get_element_type() {
@@ -140,7 +140,9 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
 
     fn _build_sizeof(&self, t: &dyn BasicType<'ctx>) -> IntValue<'ctx> {
         unsafe {
-            let ptr = t.ptr_type(AddressSpace::default()).const_null();
+            let ptr = t
+                .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
+                .const_null();
 
             let size = self.builder.build_gep(
                 ptr,
@@ -175,7 +177,9 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
     }
     fn _build_offsetof(&self, t: &dyn BasicType<'ctx>, i: u64) -> IntValue<'ctx> {
         unsafe {
-            let ptr = t.ptr_type(AddressSpace::default()).const_null();
+            let ptr = t
+                .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
+                .const_null();
             let offset2 = self.builder.build_gep(
                 ptr,
                 &[
@@ -231,13 +235,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                                 Type::String(_) => self
                                     .llvm_ctx
                                     .i8_type()
-                                    .ptr_type(AddressSpace::default())
+                                    .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                                     .into(),
                                 Type::Ident(name) => self
                                     .llvm_ctx
                                     .get_struct_type(name.as_str())
                                     .unwrap_or_else(|| panic!("type {} not found", name))
-                                    .ptr_type(AddressSpace::default())
+                                    .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                                     .into(),
                                 _ => unimplemented!(),
                             };
@@ -255,7 +259,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                             .llvm_ctx
                             .get_struct_type(name.as_str())
                             .unwrap_or_else(|| panic!("type {} not found", name))
-                            .ptr_type(AddressSpace::default())
+                            .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                             .fn_type(&params, false),
                         _ => unimplemented!(),
                     };
@@ -283,7 +287,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 .llvm_ctx
                 .get_struct_type(name)
                 .unwrap_or_else(|| panic!("type {} not found", name))
-                .ptr_type(AddressSpace::default())
+                .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                 .as_basic_type_enum(),
             _ => unimplemented!(),
         }
@@ -418,7 +422,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         .llvm_ctx
                         .get_struct_type(&constructor_llvm_name)
                         .unwrap_or_else(|| panic!("llvm type {} not found", constructor_llvm_name))
-                        .ptr_type(AddressSpace::default());
+                        .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE));
 
                     let bitcast_inner_ptr = self
                         .builder
@@ -846,12 +850,14 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
 
         self.walk_block(&function_decl.body);
 
-        if entry_basic_block.get_terminator().is_none() {
+        //get last basic block
+        let last_basic_block = self.builder.get_insert_block().unwrap();
+        if last_basic_block.get_terminator().is_none() {
             if let Type::Unit = function_decl.function_sig.proto.return_type {
                 self.builder.build_return(None);
             } else {
                 //todo: return error
-                panic!("function must return a value");
+                panic!("non-unit type functions must return a value");
             }
         };
         self.compiler_ctx.basic_value_stack.pop();
@@ -961,13 +967,13 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
             Some(Type::String(_)) => self
                 .llvm_ctx
                 .i8_type()
-                .ptr_type(AddressSpace::default())
+                .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                 .into(),
             Some(Type::Ident(name)) => self
                 .llvm_ctx
                 .get_struct_type(name)
                 .unwrap_or_else(|| panic!("type {} does not exist", name))
-                .ptr_type(AddressSpace::default())
+                .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
                 .into(),
             Some(t) => unimplemented!("{:?}", t),
             None => self.get_basic_type(
@@ -1334,7 +1340,9 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 }
                 let ptr = self.builder.build_pointer_cast(
                     res,
-                    self.llvm_ctx.i8_type().ptr_type(AddressSpace::default()),
+                    self.llvm_ctx
+                        .i8_type()
+                        .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE)),
                     "string",
                 );
                 let string_ptr = self.builder.build_alloca(ptr.get_type(), "string_ptr");
@@ -1391,7 +1399,8 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     .llvm_ctx
                     .get_struct_type(&llvm_constructor_name)
                     .unwrap();
-                let llvm_inner_ptr_type = llvm_inner_type.ptr_type(AddressSpace::default());
+                let llvm_inner_ptr_type =
+                    llvm_inner_type.ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE));
 
                 // ! there is no memory management here yet, so the memory allocated for the struct is leaked
                 // TODO implement garbage collection
@@ -1515,6 +1524,8 @@ pub mod tests {
 
     use crate::type_system::gadt_to_type;
 
+    use super::PTR_ADDRESS_SPACE;
+
     #[test]
     fn test_struct_generation() {
         let context = inkwell::context::Context::create();
@@ -1543,10 +1554,10 @@ pub mod tests {
             let execution_engine = module
                 .create_jit_execution_engine(inkwell::OptimizationLevel::Aggressive)
                 .unwrap();
-            type Main = unsafe extern "C" fn() -> i64;
+            type Main = unsafe extern "C" fn() -> ();
             let jit_function: JitFunction<Main> = execution_engine.get_function("test").unwrap();
-            let res = jit_function.call();
-            println!("Returned from main: {}", res)
+            jit_function.call();
+            // println!("Returned from main: {}", res)
         }
     }
 
@@ -1621,8 +1632,12 @@ pub mod tests {
         );
         let s2 = context.struct_type(&[context.i64_type().into(), s1.into()], false);
 
-        let ptr1 = s1.ptr_type(AddressSpace::default()).const_null();
-        let ptr2 = s2.ptr_type(AddressSpace::default()).const_null();
+        let ptr1 = s1
+            .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
+            .const_null();
+        let ptr2 = s2
+            .ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE))
+            .const_null();
 
         unsafe {
             let size1 = builder.build_gep(ptr1, &[context.i32_type().const_int(1, false)], "Size");
