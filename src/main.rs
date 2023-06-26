@@ -42,6 +42,9 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     no_run: bool,
 
+    #[arg(long, default_value = "false")]
+    no_opt: bool,
+
     output: Option<String>,
 }
 

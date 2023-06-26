@@ -78,14 +78,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 let pass_manager_builder = PassManagerBuilder::create();
                 pass_manager_builder.set_optimization_level(OptimizationLevel::Aggressive);
 
-                let fpm = PassManager::create(());
-                pass_manager_builder.populate_module_pass_manager(&fpm);
-                fpm.run_on(&self.module);
-                // spm.add_instruction_combining_pass();
-                // spm.add_licm_pass();
-                // spm.add_cfg_simplification_pass();
-                // spm.add_jump_threading_pass();
-
+                if !args.no_opt {
+                    let fpm = PassManager::create(());
+                    pass_manager_builder.populate_module_pass_manager(&fpm);
+                    fpm.run_on(&self.module);
+                    // spm.add_instruction_combining_pass();
+                    // spm.add_licm_pass();
+                    // spm.add_cfg_simplification_pass();
+                    // spm.add_jump_threading_pass();
+                }
                 if args.emit_llvm {
                     self.module.print_to_file(Path::new("out.ll")).unwrap();
                 }
