@@ -78,14 +78,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 let pass_manager_builder = PassManagerBuilder::create();
                 pass_manager_builder.set_optimization_level(OptimizationLevel::Aggressive);
 
-                let fpm = PassManager::create(());
-                pass_manager_builder.populate_module_pass_manager(&fpm);
-                fpm.run_on(&self.module);
-                // spm.add_instruction_combining_pass();
-                // spm.add_licm_pass();
-                // spm.add_cfg_simplification_pass();
-                // spm.add_jump_threading_pass();
-
+                if !args.no_opt {
+                    let fpm = PassManager::create(());
+                    pass_manager_builder.populate_module_pass_manager(&fpm);
+                    fpm.run_on(&self.module);
+                    // spm.add_instruction_combining_pass();
+                    // spm.add_licm_pass();
+                    // spm.add_cfg_simplification_pass();
+                    // spm.add_jump_threading_pass();
+                }
                 if args.emit_llvm {
                     self.module.print_to_file(Path::new("out.ll")).unwrap();
                 }
@@ -104,15 +105,13 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     .unwrap();
 
                 // self.module.print_to_stderr();
-                match &args.output {
-                    Some(s) => todo!("output to {s}"),
-                    None => unsafe {
-                        type Main = unsafe extern "C" fn() -> i64;
-                        let jit_function = execution_engine.get_function::<Main>("main").unwrap();
 
-                        let res = jit_function.call();
-                        println!("Returned from main: {}", res)
-                    },
+                unsafe {
+                    type Main = unsafe extern "C" fn() -> i64;
+                    let jit_function = execution_engine.get_function::<Main>("main").unwrap();
+
+                    let res = jit_function.call();
+                    println!("Returned from main: {}", res)
                 }
             }
         }
@@ -341,7 +340,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         patterns: &[(Pattern, CaseBranchBody)],
         value: PointerValue<'ctx>,
     ) -> CodeGenResult<'ctx> {
-        //todo detect return type
         let case_result_ptr = self
             .builder
             .build_alloca(self.llvm_ctx.i64_type(), "case_result_ptr");
@@ -363,7 +361,6 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         for (pattern, _) in patterns.iter() {
             if let Pattern::TypeIdent(span, _) = pattern {
                 let patname = self.lexer.span_str(*span);
-                //todo check if pattern matches existing constructor of type
                 if !self.compiler_ctx.type_constructors.contains_key(patname) {
                     panic!("type constructor {} not found", patname);
                 }
@@ -377,6 +374,15 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                 pattern_blocks.insert(patname, block);
             }
         }
+
+        let has_default_case = patterns
+            .iter()
+            .any(|(p, _)| matches!(p, Pattern::Ident(_) | Pattern::Wildcard));
+
+        if !has_default_case {
+            panic!("no default pattern matching case for {}", value);
+        }
+
         let cases = pattern_blocks
             .iter()
             .map(|(tag, block)| {
@@ -392,6 +398,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             match pattern {
                 Pattern::TypeIdent(span, args) => {
                     let patname = self.lexer.span_str(*span);
+
                     let block = pattern_blocks
                         .get(patname)
                         .expect("block must exist because of previous pass");
@@ -400,7 +407,25 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         self.current_function.unwrap(),
                         block.get_name().to_str().unwrap(),
                     );
-                    self.patmatch_args(args, inner_ptr, fail_block)?;
+
+                    let constructor_llvm_name = self
+                        .compiler_ctx
+                        .constructor_signatures
+                        .get(patname)
+                        .map(|(c, _)| c.llvm_name())
+                        .unwrap();
+                    let constructor_ptr_type = self
+                        .llvm_ctx
+                        .get_struct_type(&constructor_llvm_name)
+                        .unwrap_or_else(|| panic!("llvm type {} not found", constructor_llvm_name))
+                        .ptr_type(AddressSpace::default());
+
+                    let bitcast_inner_ptr = self
+                        .builder
+                        .build_bitcast(inner_ptr, constructor_ptr_type, "bitcast_inner_ptr")
+                        .into_pointer_value();
+
+                    self.patmatch_args(args, bitcast_inner_ptr, fail_block)?;
                     let result_value = match branch {
                         CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
                         CaseBranchBody::Block(block) => self.visit_block(block)?,
@@ -605,6 +630,14 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             .llvm_ctx
             .append_basic_block(self.current_function.unwrap(), "case_else");
         let current_block = self.builder.get_insert_block().unwrap();
+
+        let has_default_case = patterns
+            .iter()
+            .any(|(p, _)| matches!(p, Pattern::Ident(_) | Pattern::Wildcard));
+
+        if !has_default_case {
+            panic!("no default pattern matching case for {}", value);
+        }
         let mut cases = vec![];
         let mut return_type = None;
         for (pattern, branch) in patterns.iter() {

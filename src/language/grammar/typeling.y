@@ -214,7 +214,7 @@ stmt -> ParseResult<Statement>
 
 if_stmt -> ParseResult<If>
     : "IF" expr block { Ok(If {condition: $2?, then_block: $3?, else_block: None, span: $span}) }
-    | "IF" expr "LPAREN" block "ELSE" block { Ok(If {condition: $2?, then_block: $4?, else_block: Some($6?), span: $span}) }
+    | "IF" expr block "ELSE" block { Ok(If {condition: $2?, then_block: $3?, else_block: Some($5?), span: $span}) }
     ;
 
 while_stmt -> ParseResult<While>

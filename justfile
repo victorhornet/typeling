@@ -1,11 +1,11 @@
 parse SRC:
-    nimbleparse -y grmtools src/language/typeling.l src/language/typeling.y {{SRC}} 
+    nimbleparse -y grmtools src/language/grammar/typeling.l src/language/grammar/typeling.y {{SRC}} 
 
 rustparse SRC:
-    cargo run -q -- -i {{SRC}} -lyn
+    cargo run -q -- {{SRC}} -lyn
 
 run SRC:
-    cargo run -q -- -i {{SRC}} 
+    cargo run -q -- {{SRC}} 
 
 test:
     cargo test -q -- --nocapture --color always
