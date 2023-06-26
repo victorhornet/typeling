@@ -58,7 +58,11 @@ pub struct Args {
     #[arg(long, default_value = "false", help = "Don't run the optimizer")]
     no_opt: bool,
 
-    #[arg(long, default_value = "false", help = "Don't run the JIT compiler")]
+    #[arg(
+        long,
+        default_value = "false",
+        help = "Don't run the JIT execution engine"
+    )]
     no_run: bool,
 }
 
