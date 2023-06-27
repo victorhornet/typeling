@@ -434,7 +434,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                         CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
                         CaseBranchBody::Block(block) => self.visit_block(block)?,
                     }
-                    .expect("expr should return a value, block does not yet do that");
+                    .unwrap_or_else(|| panic!("found block: {:?}", branch));
                     match return_type {
                         None => {
                             let ty = result_value.get_type();
@@ -663,7 +663,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
                     self.builder.position_at_end(branch_block);
                     let branch_res = match branch {
                         CaseBranchBody::Block(block) => self.visit_block(block)?,
-                        CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+                        CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
                     }
                     .expect("branch should return a value");
                     match return_type {
@@ -787,7 +787,7 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
         self.builder.position_at_end(else_block);
         let branch_res = match branch {
             CaseBranchBody::Block(block) => self.visit_block(block)?,
-            CaseBranchBody::Expr(expr) => self.visit_expr(expr)?,
+            CaseBranchBody::Expr(expr) => self.read_expr_value(expr)?,
         }
         .expect("branch should return a value, block doesn't do that yet");
         let rtype = branch_res.get_type();
@@ -797,7 +797,10 @@ impl<'input, 'lexer, 'ctx> CodeGen<'input, 'lexer, 'ctx> {
             }
             Some(t) => {
                 if *t != rtype {
-                    panic!("inconsistent return types in case expression")
+                    eprintln!(
+                        "inconsistent return types in case expression: {:#?} {:#?}",
+                        t, rtype
+                    );
                 }
             }
         }
@@ -1402,7 +1405,6 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                 let llvm_inner_ptr_type =
                     llvm_inner_type.ptr_type(AddressSpace::from(PTR_ADDRESS_SPACE));
 
-                // ! there is no memory management here yet, so the memory allocated for the struct is leaked
                 // TODO implement garbage collection
                 let struct_ptr = self.builder.build_malloc(llvm_struct_type, "gadt")?;
 
