@@ -44,7 +44,7 @@ docker build -t victorhornet/typeling .
 Example alias for the run command:
 
 ```bash
-alias typeling="docker run --rm -v $(pwd):$(pwd) -w $(pwd) victorhornet/typeling"
+alias typeling="docker run -it --rm -v $(pwd):$(pwd) -w $(pwd) victorhornet/typeling typeling"
 ```
 
 ### Usage

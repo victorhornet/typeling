@@ -19,4 +19,4 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . ./
 RUN ["cargo", "install", "--path", "."]
 
-ENTRYPOINT ["typeling"]
+#ENTRYPOINT ["typeling"]
