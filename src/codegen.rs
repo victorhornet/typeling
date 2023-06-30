@@ -1252,20 +1252,39 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                     }
                     // bools
                     BinOp::And(_) => {
-                        let res = self.builder.build_and(
+                        let lhs = self.builder.build_int_compare(
+                            IntPredicate::NE,
                             lhs.into_int_value(),
-                            rhs.into_int_value(),
-                            "and",
+                            self.llvm_ctx.i64_type().const_int(0, true),
+                            "lhs_i1",
                         );
+                        let rhs = self.builder.build_int_compare(
+                            IntPredicate::NE,
+                            rhs.into_int_value(),
+                            self.llvm_ctx.i64_type().const_int(0, true),
+                            "lhs_i1",
+                        );
+
+                        let res = self.builder.build_and(lhs, rhs, "and");
                         let res =
                             self.builder
                                 .build_int_cast(res, self.llvm_ctx.i64_type(), "and_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                     BinOp::Or(_) => {
-                        let res =
-                            self.builder
-                                .build_or(lhs.into_int_value(), rhs.into_int_value(), "or");
+                        let lhs = self.builder.build_int_compare(
+                            IntPredicate::NE,
+                            lhs.into_int_value(),
+                            self.llvm_ctx.i64_type().const_int(0, true),
+                            "lhs_i1",
+                        );
+                        let rhs = self.builder.build_int_compare(
+                            IntPredicate::NE,
+                            rhs.into_int_value(),
+                            self.llvm_ctx.i64_type().const_int(0, true),
+                            "lhs_i1",
+                        );
+                        let res = self.builder.build_or(lhs, rhs, "or");
                         let res =
                             self.builder
                                 .build_int_cast(res, self.llvm_ctx.i64_type(), "or_i64");
@@ -1291,10 +1310,16 @@ impl<'input, 'lexer, 'ctx> Visitor<CodeGenResult<'ctx>> for CodeGen<'input, 'lex
                         Ok(Some(res))
                     }
                     UnOp::Not(_) => {
-                        let res = self.builder.build_not(expr.into_int_value(), "not");
+                        let expr = self.builder.build_int_compare(
+                            IntPredicate::EQ,
+                            expr.into_int_value(),
+                            self.llvm_ctx.i64_type().const_int(0, true),
+                            "lhs_i1",
+                        );
+                        // let res = self.builder.build_not(expr, "not");
                         let res =
                             self.builder
-                                .build_int_cast(res, self.llvm_ctx.i64_type(), "not_i64");
+                                .build_int_cast(expr, self.llvm_ctx.i64_type(), "not_i64");
                         Ok(Some(res.as_basic_value_enum()))
                     }
                 }
